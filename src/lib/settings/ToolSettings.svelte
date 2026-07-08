@@ -79,29 +79,27 @@
     </div>
 </Panel>
 
-{#if devBuild}
-    <Panel title="Sidecar tools">
-        <div class="form-stack">
-            {#each toolStatuses as tool (tool.tool)}
-                <Card>
-                    <div class="tool-status">
-                        <div class="tool-status-copy">
-                            <span class="anasthasia-label">{tool.tool}</span>
-                            <p class="tool-version">
-                                {tool.version ?? "Not available"}
-                            </p>
-                            <PathDisplay value={tool.path} empty="No path resolved" />
-                        </div>
-                        <Badge variant={tool.source === "missing" ? "danger" : "mono"}
-                            >{tool.source}</Badge
-                        >
+<Panel title="Sidecar tools">
+    <div class="form-stack">
+        {#each toolStatuses as tool (tool.tool)}
+            <Card>
+                <div class="tool-status">
+                    <div class="tool-status-copy">
+                        <span class="anasthasia-label">{tool.tool}</span>
+                        <p class="tool-version">
+                            {tool.version ?? "Not available"}
+                        </p>
+                        <PathDisplay value={tool.path} empty="No path resolved" />
                     </div>
-                </Card>
-            {/each}
-            <small class="panel-note">
-                ffmpeg ships with the app, pinned to a build hash checked at compile time. Managed
-                yt-dlp is verified against yt-dlp's own release checksums before install.
-            </small>
-        </div>
-    </Panel>
-{/if}
+                    <Badge variant={tool.source === "missing" ? "danger" : "mono"}
+                        >{tool.source}</Badge
+                    >
+                </div>
+            </Card>
+        {/each}
+        <small class="panel-note">
+            ffmpeg ships with the app, pinned to a build hash checked at compile time. Managed
+            yt-dlp is verified against yt-dlp's own release checksums before install.
+        </small>
+    </div>
+</Panel>

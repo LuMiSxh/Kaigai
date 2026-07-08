@@ -8,5 +8,4 @@ README.md
 LICENSE-APACHE
 LICENSE-MIT
 .github
-audit
 scripts/*.py

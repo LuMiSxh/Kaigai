@@ -114,6 +114,30 @@ pub fn system_yt_dlp_available() -> bool {
     find_system_yt_dlp().is_some()
 }
 
+/// The PATH a login shell would compute. A GUI app launched from Finder/Dock
+/// inherits launchd's bare PATH, not the user's shell profile — yt-dlp needs
+/// the fuller one on PATH itself (not just to be located) to find a JS
+/// runtime (deno/node) for solving YouTube's PO-token challenge, or it
+/// silently returns "No video formats found" instead of an error.
+#[cfg(not(target_os = "windows"))]
+pub fn login_shell_path() -> Option<String> {
+    let output = Command::new("/bin/sh")
+        .args(["-lc", "printf %s \"$PATH\""])
+        .output()
+        .ok()?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8(output.stdout).ok())
+        .flatten()
+        .filter(|path| !path.is_empty())
+}
+
+#[cfg(target_os = "windows")]
+pub fn login_shell_path() -> Option<String> {
+    None
+}
+
 /// The latest yt-dlp version GitHub has published, for comparison against
 /// whatever `status(app, Tool::YtDlp)` currently resolves to.
 pub async fn latest_yt_dlp_version() -> Result<String, String> {

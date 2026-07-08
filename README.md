@@ -26,14 +26,14 @@ pnpm bench:prepare
 pnpm bench:models
 ```
 
-See [docs/translation-benchmarks.md](docs/translation-benchmarks.md) for the
-VTuber corpus, Core ML/no-Core ML matrix, and multi-speaker result slicing.
-The current recommendation is in
+More on the benchmark suite (VTuber corpus, Core ML/no-Core ML matrix,
+multi-speaker slicing) and the current model recommendation, including the
+ASR-to-MT track, is in
+[docs/translation-benchmarks.md](docs/translation-benchmarks.md) and
 [docs/translation-benchmark-findings.md](docs/translation-benchmark-findings.md).
-The ASR-to-MT RC2 track is in [docs/rc2-asr-mt-plan.md](docs/rc2-asr-mt-plan.md).
-Release quality criteria are in
-[docs/release-quality-gates.md](docs/release-quality-gates.md).
-Dual-pass Accuracy planning is in
+Release quality criteria live in
+[docs/release-quality-gates.md](docs/release-quality-gates.md), and the
+dual-pass Accuracy mode plan is in
 [docs/dual-pass-accuracy-architecture.md](docs/dual-pass-accuracy-architecture.md).
 
 ## License

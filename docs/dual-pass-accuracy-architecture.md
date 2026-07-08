@@ -1,16 +1,15 @@
 # Dual-pass accuracy architecture
 
-Status: planned, not implemented.
+Planned, not implemented yet.
 
-The online/source check supports the direction, but not as a blind default.
-Whisper itself is not a native streaming model. The strongest published pattern
-for improving live Whisper behavior is not "run two models immediately"; it is
-chunked decoding plus an emission policy such as local agreement and adaptive
-latency. Kaigai's current `Stable` mode follows that product direction by
-favoring final utterances over rolling translation drafts.
+Whisper isn't a native streaming model, and research backs that up — the
+strongest published pattern for improving live Whisper isn't "run two models
+at once," it's chunked decoding plus an emission policy like local agreement
+with adaptive latency. That's the direction Kaigai's `Stable` mode already
+takes, by favoring final utterances over rolling translation drafts.
 
-Dual-pass still makes sense as an optional Accuracy mode after Stable mode is
-solid.
+Dual-pass still makes sense on top of that, as an optional Accuracy mode,
+once Stable mode is solid.
 
 ## Source notes
 

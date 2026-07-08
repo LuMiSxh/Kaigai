@@ -1,9 +1,8 @@
 # Translation benchmark suite
 
 Kaigai benchmarks live-caption behavior against short regression clips and
-longer stress clips from Japanese VTuber streams. The committed corpus contains
-only public video metadata and timestamps. Audio is generated locally and
-ignored by git.
+longer stress clips from Japanese VTuber streams. Only public video metadata
+and timestamps are committed — audio is generated locally and gitignored.
 
 ## Corpus goals
 

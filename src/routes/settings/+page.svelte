@@ -61,7 +61,7 @@
         }
         syncSettings(snapshot.data.settings);
         if (catalog.status === "ok") models = catalog.data;
-        if (DEV_BUILD) toolStatuses = await commands.getToolStatuses();
+        toolStatuses = await commands.getToolStatuses();
         return [
             await events.modelDownloadEvent.listen((event) => {
                 if (event.payload.modelId === "yt-dlp") {

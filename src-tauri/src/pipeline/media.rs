@@ -77,6 +77,9 @@ fn resolve_source(
     let executable = tools::resolve(app, Tool::YtDlp)?;
     tracing::debug!(path = %executable.display(), "resolved yt-dlp");
     let mut command = Command::new(executable);
+    if let Some(path) = tools::login_shell_path() {
+        command.env("PATH", path);
+    }
     command.args([
         "--no-playlist",
         "--quiet",

@@ -1,7 +1,7 @@
 # Release quality gates
 
-Kaigai should optimize for readable, trustworthy captions over lowest possible
-latency. The default product behavior is therefore `Stable` caption mode.
+Kaigai optimizes for readable, trustworthy captions over the lowest possible
+latency — that's why `Stable` caption mode is the default.
 
 ## Caption modes
 
