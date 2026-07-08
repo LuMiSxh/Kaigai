@@ -55,6 +55,8 @@ Required acceptance:
 - `large-v3` remains available as the Accuracy option;
 - ASR-to-MT stays experimental until it beats `medium` + Core ML on quality and
   latency.
+- Dual-pass Accuracy stays experimental until it proves better final captions
+  without distracting replacement flicker or unacceptable correction latency.
 
 ## Benchmark commands
 

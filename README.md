@@ -33,6 +33,8 @@ The current recommendation is in
 The ASR-to-MT RC2 track is in [docs/rc2-asr-mt-plan.md](docs/rc2-asr-mt-plan.md).
 Release quality criteria are in
 [docs/release-quality-gates.md](docs/release-quality-gates.md).
+Dual-pass Accuracy planning is in
+[docs/dual-pass-accuracy-architecture.md](docs/dual-pass-accuracy-architecture.md).
 
 ## License
 
