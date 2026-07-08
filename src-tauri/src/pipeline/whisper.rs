@@ -46,6 +46,36 @@ const HALLUCINATIONS: &[&str] = &[
     "チャンネル登録お願いします",
 ];
 
+/// Strong subtitle-artifact snippets may be embedded in an otherwise longer
+/// segment. Remove the artifact part instead of only rejecting exact matches.
+const REMOVABLE_ARTIFACTS: &[&str] = &[
+    "thank you for watching",
+    "thanks for watching",
+    "thank you so much for watching",
+    "see you next time",
+    "please subscribe to my channel",
+    "please subscribe",
+    "like and subscribe",
+    "please like and subscribe",
+    "subscribe to my channel",
+    "translated by releska",
+    "translated by",
+    "ご視聴ありがとうございました",
+    "ご視聴ありがとうございます",
+    "チャンネル登録お願いします",
+];
+
+/// Phrases that can be legitimate once, but usually indicate a decoder loop
+/// when repeated inside a short streaming window.
+const LOOP_PHRASES: &[&str] = &[
+    "i'm sorry",
+    "i am sorry",
+    "i'm going to eat",
+    "i am going to eat",
+    "i'm not sure if i can do it",
+    "i am not sure if i can do it",
+];
+
 /// Short English outputs that are often legitimate translations, but are also
 /// Whisper's most common failure mode on tiny/noisy windows. Unlike the stock
 /// phrases above, these need a source-language verification before removal.
@@ -174,6 +204,7 @@ impl WhisperEngine {
 
     pub fn transcribe(&mut self, audio: &[f32]) -> Result<Vec<WhisperSegment>, String> {
         let mut segments = self.decode(audio, self.translate)?;
+        clean_segments(&mut segments);
         segments
             .retain(|segment| output_is_supported(&segment.text, segment.no_speech_probability));
         if !self.translate {
@@ -187,6 +218,10 @@ impl WhisperEngine {
             let source = self
                 .decode(audio, false)?
                 .into_iter()
+                .filter_map(|mut segment| {
+                    segment.text = clean_output_text(&segment.text)?;
+                    Some(segment)
+                })
                 .filter(|segment| output_is_supported(&segment.text, segment.no_speech_probability))
                 .map(|segment| segment.text)
                 .collect::<Vec<_>>()
@@ -250,7 +285,162 @@ impl WhisperEngine {
 }
 
 fn output_is_supported(text: &str, no_speech_probability: f32) -> bool {
-    no_speech_probability < NO_SPEECH_THRESHOLD && !is_hallucination(text)
+    no_speech_probability < NO_SPEECH_THRESHOLD
+        && !is_hallucination(text)
+        && !is_repetition_loop(text)
+}
+
+fn clean_segments(segments: &mut Vec<WhisperSegment>) {
+    for segment in &mut *segments {
+        if let Some(text) = clean_output_text(&segment.text) {
+            segment.text = text;
+        } else {
+            segment.text.clear();
+        }
+    }
+}
+
+fn clean_output_text(text: &str) -> Option<String> {
+    let mut text = strip_translator_credit(text.trim());
+    for artifact in REMOVABLE_ARTIFACTS {
+        text = strip_case_insensitive(&text, artifact);
+    }
+    text = collapse_repeated_units(&text);
+    text = collapse_repeated_words(&text);
+    text = collapse_repeated_characters(&text);
+    let text = normalize_spaces(&trim_lonely_separators(&text));
+    (!squash(&text).is_empty()).then_some(text)
+}
+
+fn strip_translator_credit(text: &str) -> String {
+    let normalized = text.to_lowercase();
+    if !normalized.starts_with("translated by ") {
+        return text.into();
+    }
+    text.split_whitespace()
+        .skip(3)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn strip_case_insensitive(text: &str, needle: &str) -> String {
+    let mut output = text.to_owned();
+    loop {
+        let lowercase = output.to_lowercase();
+        let Some(start) = lowercase.find(needle) else {
+            return output;
+        };
+        let end = start + needle.len();
+        output.replace_range(start..end, "");
+    }
+}
+
+fn normalize_spaces(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn trim_lonely_separators(text: &str) -> String {
+    text.trim_start_matches(|character: char| {
+        character.is_whitespace()
+            || matches!(
+                character,
+                '.' | ',' | ':' | ';' | '-' | '–' | '—' | '。' | '、' | '，'
+            )
+    })
+    .into()
+}
+
+fn collapse_repeated_units(text: &str) -> String {
+    let characters = text.chars().collect::<Vec<_>>();
+    let mut output = String::new();
+    let mut index = 0;
+    while index < characters.len() {
+        let mut collapsed = false;
+        for unit_len in (2..=6).rev() {
+            if index + unit_len * 4 > characters.len() {
+                continue;
+            }
+            let unit = &characters[index..index + unit_len];
+            if !unit.iter().all(|character| is_japanese_text(*character)) {
+                continue;
+            }
+            let mut repeats = 1;
+            while index + unit_len * (repeats + 1) <= characters.len()
+                && &characters[index + unit_len * repeats..index + unit_len * (repeats + 1)] == unit
+            {
+                repeats += 1;
+            }
+            if repeats >= 4 {
+                output.extend(unit.iter());
+                output.extend(unit.iter());
+                index += unit_len * repeats;
+                collapsed = true;
+                break;
+            }
+        }
+        if !collapsed {
+            output.push(characters[index]);
+            index += 1;
+        }
+    }
+    output
+}
+
+fn collapse_repeated_words(text: &str) -> String {
+    let words = text.split_whitespace().collect::<Vec<_>>();
+    if words.len() < 6 {
+        return text.into();
+    }
+    let mut output = Vec::new();
+    let mut index = 0;
+    while index < words.len() {
+        let mut repeats = 1;
+        while index + repeats < words.len()
+            && squash(words[index + repeats]) == squash(words[index])
+            && !squash(words[index]).is_empty()
+        {
+            repeats += 1;
+        }
+        let keep = if repeats >= 5 { 2 } else { repeats };
+        for _ in 0..keep {
+            output.push(words[index]);
+        }
+        index += repeats;
+    }
+    output.join(" ")
+}
+
+fn collapse_repeated_characters(text: &str) -> String {
+    let mut output = String::new();
+    let mut previous = None;
+    let mut count = 0;
+    for character in text.chars() {
+        if Some(character) == previous {
+            count += 1;
+        } else {
+            previous = Some(character);
+            count = 1;
+        }
+        if count <= 4 || character.is_whitespace() || !character.is_alphanumeric() {
+            output.push(character);
+        }
+    }
+    output
+}
+
+fn is_japanese_text(character: char) -> bool {
+    matches!(
+        character,
+        '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{9fff}'
+    )
+}
+
+fn is_repetition_loop(text: &str) -> bool {
+    let normalized = text.to_lowercase();
+    LOOP_PHRASES.iter().any(|phrase| {
+        let count = normalized.matches(phrase).count();
+        count >= 3 && squash(text).len() <= squash(phrase).len() * count + 24
+    })
 }
 
 #[cfg(test)]
@@ -285,6 +475,47 @@ mod tests {
     fn rejects_text_when_whisper_predicts_no_speech() {
         assert!(!output_is_supported("invented sentence", 0.92));
         assert!(output_is_supported("actual speech", 0.12));
+    }
+
+    #[test]
+    fn strips_embedded_subtitle_artifacts() {
+        assert_eq!(
+            clean_output_text("Thank you for watching. Actual translation here."),
+            Some("Actual translation here.".into())
+        );
+        assert_eq!(
+            clean_output_text("Translated by Releska I wonder if I'm here"),
+            Some("I wonder if I'm here".into())
+        );
+        assert_eq!(clean_output_text("Please subscribe."), None);
+    }
+
+    #[test]
+    fn rejects_dominant_repetition_loops() {
+        assert!(!output_is_supported(
+            "I'm sorry. I'm sorry. I'm sorry. I'm sorry.",
+            0.1
+        ));
+        assert!(output_is_supported(
+            "I'm sorry about the timing, but thank you for the gift.",
+            0.1
+        ));
+    }
+
+    #[test]
+    fn collapses_source_repetition_artifacts() {
+        assert_eq!(
+            clean_output_text("スカスカスカスカスカスカになる"),
+            Some("スカスカになる".into())
+        );
+        assert_eq!(
+            clean_output_text("ううううううううう"),
+            Some("うううう".into())
+        );
+        assert_eq!(
+            clean_output_text("money money money money money money is here"),
+            Some("money money is here".into())
+        );
     }
 
     #[test]

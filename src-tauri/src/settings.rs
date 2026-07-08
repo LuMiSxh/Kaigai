@@ -70,9 +70,9 @@ pub struct AppSettings {
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            model: "small".into(),
+            model: "medium".into(),
             model_path: String::new(),
-            inference_backend: "metal".into(),
+            inference_backend: "coreml".into(),
             source_language: "ja".into(),
             task: "translate".into(),
             chunk_mode: "adaptive".into(),

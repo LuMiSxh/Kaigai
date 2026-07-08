@@ -18,7 +18,7 @@
     type CompleteAppSettings = Required<AppSettings>;
     let settings: CompleteAppSettings | null = $state(null);
     let models: ModelInfo[] = $state([]);
-    let selectedModel = $state("small");
+    let selectedModel = $state("medium");
     let modelDownload: ModelDownloadEvent | null = $state(null);
     let installingModel = $state(false);
 
@@ -191,8 +191,9 @@
         {:else if current === "model"}
             <h1>Choose a speech model</h1>
             <p class="onboarding-lead">
-                Bigger models are more accurate but slower and larger. <strong>Small</strong> is a good
-                starting point. It downloads once and then runs fully offline.
+                Bigger models are more accurate but slower and larger. <strong>Medium</strong> is the
+                recommended balanced default from Kaigai's VTuber benchmark. It downloads once and then
+                runs fully offline.
             </p>
             <div class="form-stack">
                 <ModelSetup

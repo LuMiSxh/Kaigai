@@ -26,7 +26,7 @@
     let saving: boolean = $state(false);
     let toolStatuses: ToolStatus[] = $state([]);
     let models: ModelInfo[] = $state([]);
-    let selectedModel: string = $state("small");
+    let selectedModel: string = $state("medium");
     let modelDownload: ModelDownloadEvent | null = $state(null);
     let installingModel = $state(false);
     let removingModel = $state(false);

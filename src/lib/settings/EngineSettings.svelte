@@ -81,8 +81,8 @@
                 {#if settings.task === "translate" && activeModelInfo && !activeModelInfo.supportsTranslate}
                     <Alert variant="warning">
                         <strong>{activeModelInfo.label}</strong> is a distilled model and does not support
-                        translation — subtitles will stay in the source language. Switch to Large v3 or
-                        another non-distilled model.
+                        translation — subtitles will stay in the source language. Switch to Medium, Large
+                        v3, or another non-distilled model.
                     </Alert>
                 {/if}
             </div>

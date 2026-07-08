@@ -11,5 +11,9 @@ vite.config.ts.timestamp-*
 /src-tauri/resources/bin/ffmpeg-*
 /src-tauri/resources/models/*.bin
 /src-tauri/resources/models/*.pin
+/benchmarks/corpus/audio/
+/benchmarks/corpus/cache/
+/benchmarks/corpus/generated/
+/benchmarks/results/
 # CocoIndex Code (ccc)
 /.cocoindex_code/

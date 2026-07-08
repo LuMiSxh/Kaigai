@@ -4,6 +4,7 @@ use tauri::WindowEvent;
 use tauri_specta::{Builder as SpectaBuilder, collect_commands, collect_events};
 
 mod app;
+pub mod benchmark;
 mod commands;
 mod download;
 mod events;

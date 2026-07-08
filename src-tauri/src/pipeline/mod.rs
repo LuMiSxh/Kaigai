@@ -32,7 +32,7 @@ mod media;
 mod queue;
 mod stabilizer;
 mod vad;
-mod whisper;
+pub(crate) mod whisper;
 
 /// PCM bytes read per syscall (~100 ms of 16 kHz mono `s16le`).
 const BYTES_PER_READ: usize = SAMPLE_RATE / 10 * 2;

@@ -60,7 +60,7 @@ pub(super) struct ModelDefinition {
     pub supports_translate: bool,
 }
 
-const MODELS: [ModelDefinition; 7] = [
+const MODELS: [ModelDefinition; 6] = [
     ModelDefinition {
         id: "tiny",
         label: "Tiny",
@@ -93,7 +93,7 @@ const MODELS: [ModelDefinition; 7] = [
         id: "small",
         label: "Small",
         provider: "OpenAI",
-        description: "Balanced speed and accuracy. A solid default for live Japanese captioning.",
+        description: "Fastest model that stayed usable in the VTuber benchmark. Best when low latency matters more than accuracy; expect more artifacts than Medium.",
         repo: "ggerganov/whisper.cpp",
         size_bytes: 487_601_967,
         sha256: "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
@@ -107,7 +107,7 @@ const MODELS: [ModelDefinition; 7] = [
         id: "medium",
         label: "Medium",
         provider: "OpenAI",
-        description: "More accurate than Small on accents and background noise, but slower — may lag behind fast speech.",
+        description: "Recommended balanced default from the VTuber benchmark. More accurate than Small while still comfortably real-time on Apple Silicon with Neural Engine enabled.",
         repo: "ggerganov/whisper.cpp",
         size_bytes: 1_533_763_059,
         sha256: "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208",
@@ -121,7 +121,7 @@ const MODELS: [ModelDefinition; 7] = [
         id: "large-v3",
         label: "Large v3",
         provider: "OpenAI",
-        description: "OpenAI's most accurate general-purpose model. Best on difficult audio, but the slowest — real-time captioning may fall behind.",
+        description: "Accuracy-first option. Best on difficult audio, but much heavier than Medium; use when quality matters more than latency.",
         repo: "ggerganov/whisper.cpp",
         size_bytes: 3_095_033_483,
         sha256: "64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2",
@@ -143,17 +143,6 @@ const MODELS: [ModelDefinition; 7] = [
             size_bytes: 1_173_393_014,
             sha256: "84bedfe895bd7b5de6e8e89a0803dfc5addf8c0c5bc4c937451716bf7cf7988a",
         }),
-        supports_translate: false,
-    },
-    ModelDefinition {
-        id: "kotoba-whisper-v2.0",
-        label: "Kotoba Whisper v2.0",
-        provider: "Kotoba-Whisper",
-        description: "Fine-tuned specifically for Japanese speech (distilled from Large v3). Reported to beat OpenAI's Large v3 on Japanese benchmarks while running about 6x faster. No Core ML build available. Translation to English is not supported by this model.",
-        repo: "kotoba-tech/kotoba-whisper-v2.0-ggml",
-        size_bytes: 1_519_521_155,
-        sha256: "eff70a8a236e731abba774ba71e1f6d0fce53302137208c32207e694e0bf4546",
-        core_ml: None,
         supports_translate: false,
     },
 ];

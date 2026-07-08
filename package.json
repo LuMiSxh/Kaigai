@@ -17,6 +17,11 @@
         "test": "vitest run",
         "test:watch": "vitest",
         "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+        "bench:prepare": "node scripts/prepare-vtuber-corpus.mjs",
+        "bench:models": "cargo run --manifest-path src-tauri/Cargo.toml --bin bench_corpus --release",
+        "bench:asr-mt:opus": "uv run scripts/translate-asr-mt.py",
+        "bench:asr-mt:qwen": "uv run scripts/translate-asr-llm.py",
+        "bench:criterion": "cargo bench --manifest-path src-tauri/Cargo.toml --bench translation_corpus",
         "bindings": "cargo test --manifest-path src-tauri/Cargo.toml export_bindings",
         "tauri": "tauri"
     },
