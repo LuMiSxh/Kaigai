@@ -95,6 +95,14 @@ fn resolve_source(
 
     if !output.status.success() {
         let error = crate::tracing_setup::sanitize(&String::from_utf8_lossy(&output.stderr));
+        if is_safari_cookie_permission_error(settings, &error) {
+            return Err(
+                "yt-dlp could not read Safari's cookies (macOS denied access). Grant Kaigai \
+                 Full Disk Access in System Settings \u{2192} Privacy & Security, quit Safari, \
+                 then try again."
+                    .to_string(),
+            );
+        }
         return Err(format!(
             "yt-dlp could not resolve the stream: {}",
             error.trim()
@@ -108,6 +116,13 @@ fn resolve_source(
         url: info.url,
         headers: info.http_headers.into_iter().collect(),
     })
+}
+
+fn is_safari_cookie_permission_error(settings: &AppSettings, error: &str) -> bool {
+    settings.cookie_mode == "browser"
+        && settings.browser == "safari"
+        && error.contains("Operation not permitted")
+        && error.contains("Cookies.binarycookies")
 }
 
 fn add_authentication(command: &mut Command, settings: &AppSettings) {

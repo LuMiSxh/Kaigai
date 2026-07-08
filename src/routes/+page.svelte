@@ -2,7 +2,7 @@
     import "./overlay.css";
     import { getCurrentWindow } from "@tauri-apps/api/window";
     import { Channel } from "@tauri-apps/api/core";
-    import { Button, Input } from "anasthasia";
+    import { Alert, Button, Input } from "anasthasia";
     import { onMountAsync } from "$lib/lifecycle";
     import {
         commands,
@@ -287,7 +287,7 @@
             <span>{loadingLabel}</span>
         </div>
     {:else if mode === "error"}
-        <div class="bar-card bar-status is-error">{errorText}</div>
+        <Alert variant="danger" live="assertive" class="bar-alert">{errorText}</Alert>
     {:else if lineText}
         <p
             class="caption"

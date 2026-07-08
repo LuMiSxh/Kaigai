@@ -97,8 +97,10 @@ body.overlay-document {
     cursor: default;
 }
 
-.bar-status.is-error {
-    color: #d23c40;
+.bar-alert {
+    width: 100%;
+    max-width: 560px;
+    cursor: default;
 }
 
 .spinner {
