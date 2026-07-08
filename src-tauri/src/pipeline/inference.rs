@@ -6,6 +6,7 @@ use tauri_specta::Event;
 use super::{
     Signals,
     audio_window::samples_to_ms,
+    quality::CaptionQualityGate,
     queue::{ChunkQueue, QueuedWindow},
     stabilizer::{Stabilizer, squash},
     whisper::{WhisperEngine, WhisperSegment},
@@ -26,6 +27,7 @@ pub fn process(
     queue: &ChunkQueue,
     signals: &Signals,
     stabilizer: &mut Stabilizer,
+    quality_gate: &mut CaptionQualityGate,
 ) -> Result<(), String> {
     let window = queued.window;
     let chunk_ms = samples_to_ms(window.samples.len());
@@ -83,7 +85,20 @@ pub fn process(
     )?;
 
     let text = join_unique_segments(&segments);
-    if text.is_empty() {
+    let quality = quality_gate.evaluate_inference_text(
+        &text,
+        window.final_window,
+        window.speech_ms,
+        segments.len(),
+    );
+    if !quality.allow {
+        tracing::debug!(
+            reason = quality.reason,
+            final_window = window.final_window,
+            speech_ms = window.speech_ms,
+            segments = segments.len(),
+            "caption quality gate rejected inference output"
+        );
         return Ok(());
     }
 
@@ -101,6 +116,7 @@ pub fn process(
             end_ms,
             text: final_text.clone(),
         });
+        quality_gate.accept_final();
         SubtitleEvent {
             start_ms,
             end_ms,
@@ -111,6 +127,17 @@ pub fn process(
         .map_err(|error| error.to_string())?;
     } else {
         let hypothesis = stabilizer.update(&text);
+        let partial_quality =
+            quality_gate.evaluate_partial(&hypothesis.stable, &hypothesis.unstable);
+        if !partial_quality.allow {
+            tracing::debug!(
+                reason = partial_quality.reason,
+                stable_empty = hypothesis.stable.is_empty(),
+                unstable_empty = hypothesis.unstable.is_empty(),
+                "caption quality gate skipped partial update"
+            );
+            return Ok(());
+        }
         app.state::<AppState>().send_feed(AppFeed::Partial {
             stable_text: hypothesis.stable.clone(),
             unstable_text: hypothesis.unstable.clone(),

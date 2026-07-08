@@ -15,6 +15,7 @@ use self::{
     audio_window::{AudioWindow, RollingWindow, SAMPLE_RATE, decode_pcm_into, samples_to_ms},
     inference::process,
     media::MediaProcess,
+    quality::CaptionQualityGate,
     queue::{ChunkQueue, Recv},
     stabilizer::Stabilizer,
     vad::SpeechDetector,
@@ -29,6 +30,7 @@ use crate::{
 mod audio_window;
 mod inference;
 mod media;
+mod quality;
 mod queue;
 mod stabilizer;
 mod vad;
@@ -155,6 +157,7 @@ pub fn run(
     // responsive to cancellation between chunks.
     let mut result = Ok(());
     let mut stabilizer = Stabilizer::new(&settings);
+    let mut quality_gate = CaptionQualityGate::new(&settings);
     loop {
         if signals.stop_requested() {
             break;
@@ -168,6 +171,7 @@ pub fn run(
                     &queue,
                     &signals,
                     &mut stabilizer,
+                    &mut quality_gate,
                 ) {
                     result = Err(error);
                     signals.abort.store(true, Ordering::Relaxed);
