@@ -1,0 +1,5 @@
+[env]
+# Release artifacts must run across Apple Silicon generations instead of
+# inheriting CPU extensions from the machine that happens to build them.
+GGML_NATIVE = "OFF"
+MACOSX_DEPLOYMENT_TARGET = "12.0"

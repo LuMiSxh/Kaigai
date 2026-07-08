@@ -1,0 +1,124 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "srgb:0.95686,0.94902,0.94118,1.00000",
+      "srgb:0.92143,0.92145,0.92144,1.00000"
+    ],
+    "orientation" : {
+      "start" : {
+        "x" : 0.7867882181755232,
+        "y" : 0.9095760221444957
+      },
+      "stop" : {
+        "x" : 0.21321178182447675,
+        "y" : 0.09042397785550421
+      }
+    }
+  },
+  "groups" : [
+    {
+      "blend-mode" : "normal",
+      "blur-material" : 0.05,
+      "layers" : [
+        {
+          "blend-mode" : "normal",
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:0.94902,0.61569,0.14118,1.00000"
+              }
+            }
+          ],
+          "glass" : true,
+          "image-name" : "foreground.svg",
+          "name" : "glyph",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.1,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "lighting" : "combined",
+      "name" : "Foreground",
+      "opacity" : 1,
+      "shadow" : {
+        "kind" : "layer-color",
+        "opacity" : 0.22
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.08
+      }
+    },
+    {
+      "blend-mode" : "normal",
+      "blur-material" : 0.15,
+      "layers" : [
+        {
+          "blend-mode" : "normal",
+          "fill-specializations" : [
+            {
+              "value" : {
+                "linear-gradient" : [
+                  "extended-gray:0.00000,1.00000",
+                  "srgb:0.12984,0.12985,0.12984,1.00000"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.5,
+                    "y" : 0
+                  },
+                  "stop" : {
+                    "x" : 0.5,
+                    "y" : 0.7
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:0.96078,0.94902,0.94118,1.00000"
+              }
+            }
+          ],
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Caption_Lines.svg",
+          "name" : "Caption_Lines",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.1,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "lighting" : "combined",
+      "name" : "Caption_Lines",
+      "opacity" : 1,
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.12
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.04
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : [
+      "macOS"
+    ]
+  }
+}

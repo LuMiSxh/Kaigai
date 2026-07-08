@@ -1,0 +1,456 @@
+@import "tailwindcss";
+@import "anasthasia/styles";
+@import "./lumi-flavour.css";
+
+html,
+body {
+    min-width: 100%;
+    min-height: 100%;
+    margin: 0;
+}
+
+body {
+    overflow: auto;
+    color: var(--color-anasthasia-text);
+    background:
+        radial-gradient(
+            circle at 88% -8%,
+            color-mix(in srgb, var(--color-lumi-signal) 14%, transparent),
+            transparent 32rem
+        ),
+        var(--color-anasthasia-bg);
+}
+
+/* ---------- App shell & top bar ---------- */
+
+.app-shell {
+    box-sizing: border-box;
+    width: min(100%, 1080px);
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 2.5rem;
+}
+
+.app-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1.1rem;
+    border-bottom: 1px solid var(--color-anasthasia-border);
+}
+
+.app-bar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    min-width: 0;
+}
+
+.brand-mark {
+    width: 2.6rem;
+    height: 2.6rem;
+    flex-shrink: 0;
+    object-fit: contain;
+    filter: drop-shadow(
+        0 6px 10px color-mix(in srgb, var(--color-anasthasia-accent) 30%, transparent)
+    );
+}
+
+.app-bar-copy {
+    display: grid;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+.app-bar-copy h1 {
+    margin: 0;
+    font-size: clamp(1.5rem, 3.5vw, 2rem);
+    line-height: 1.05;
+    letter-spacing: -0.035em;
+}
+
+.app-bar-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+/* ---------- Status pill ---------- */
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid var(--color-anasthasia-border);
+    border-radius: 999px;
+    padding: 0.34rem 0.7rem 0.34rem 0.6rem;
+    background: var(--color-anasthasia-panel);
+    color: var(--color-anasthasia-muted);
+    font: 600 0.72rem/1 var(--font-mono, ui-monospace, monospace);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.status-pill[data-tone="idle"] {
+    color: var(--color-anasthasia-muted);
+}
+.status-pill[data-tone="busy"] {
+    color: var(--color-anasthasia-accent-strong);
+}
+.status-pill[data-tone="live"] {
+    color: #1f9d57;
+    border-color: color-mix(in srgb, #2fbf71 45%, var(--color-anasthasia-border));
+}
+.status-pill[data-tone="error"] {
+    color: #d23c40;
+    border-color: color-mix(in srgb, #e5484d 45%, var(--color-anasthasia-border));
+}
+
+.status-pill.is-pulsing .status-dot {
+    animation: status-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes status-pulse {
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent);
+        opacity: 1;
+    }
+    50% {
+        box-shadow: 0 0 0 0.32rem transparent;
+        opacity: 0.55;
+    }
+}
+
+/* ---------- Layout primitives ---------- */
+
+.form-stack {
+    display: grid;
+    gap: 1rem;
+}
+
+.action-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.field {
+    display: grid;
+    gap: 0.4rem;
+}
+
+.field-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.disclosure {
+    justify-self: start;
+    border: 0;
+    padding: 0;
+    color: var(--color-anasthasia-accent);
+    background: none;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.disclosure:hover {
+    text-decoration: underline;
+}
+
+/* ---------- Info tooltip ---------- */
+
+.info-tip-trigger {
+    display: inline-grid;
+    place-items: center;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    border: 1px solid var(--color-anasthasia-border);
+    border-radius: 50%;
+    padding: 0;
+    color: var(--color-anasthasia-muted);
+    background: var(--color-anasthasia-surface);
+    font-family: var(--font-sans);
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1;
+    vertical-align: middle;
+    cursor: help;
+    transition:
+        color 0.15s ease,
+        border-color 0.15s ease,
+        background 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.info-tip-trigger span {
+    display: block;
+    transform: translateY(-0.01rem);
+}
+
+.info-tip-trigger:hover,
+.info-tip-trigger:focus-visible,
+.info-tip-trigger[aria-expanded="true"] {
+    color: var(--color-anasthasia-accent-strong);
+    border-color: color-mix(
+        in srgb,
+        var(--color-anasthasia-accent) 50%,
+        var(--color-anasthasia-border)
+    );
+    background: color-mix(
+        in srgb,
+        var(--color-anasthasia-accent) 8%,
+        var(--color-anasthasia-surface)
+    );
+}
+
+.info-tip-trigger:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-anasthasia-accent) 16%, transparent);
+    outline: none;
+}
+
+/* ---------- Engine: model + tools ---------- */
+
+.model-fieldset {
+    min-width: 0;
+    margin: 0;
+    border: 0;
+    padding: 0;
+}
+
+.model-fieldset:disabled {
+    opacity: 0.7;
+}
+
+.model-summary {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.model-summary-meta {
+    margin: 0.2rem 0 0;
+    color: var(--color-anasthasia-muted);
+    font-size: 0.78rem;
+}
+
+.model-summary-description {
+    margin: 0.4rem 0 0;
+    max-width: 34rem;
+    color: var(--color-anasthasia-text);
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.coreml-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--color-anasthasia-border);
+}
+
+.model-progress {
+    display: grid;
+    gap: 0.5rem;
+    border: 1px solid var(--color-anasthasia-border);
+    border-radius: var(--radius-anasthasia-lg);
+    padding: 0.8rem;
+    background: var(--color-anasthasia-panel);
+}
+
+.model-progress-copy {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0;
+}
+
+.model-progress-copy strong {
+    text-transform: capitalize;
+}
+
+.model-progress small {
+    color: var(--color-anasthasia-muted);
+}
+
+.tool-status {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.tool-status-copy {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+}
+
+.tool-version {
+    margin: 0;
+    color: var(--color-anasthasia-muted);
+    font-size: 0.8rem;
+}
+
+/* ---------- Appearance fields ---------- */
+
+.native-color-field,
+.slider-field {
+    display: grid;
+    gap: 0.4rem;
+}
+
+.native-color-field input {
+    width: 100%;
+    min-height: 2.4rem;
+    border: 1px solid var(--color-anasthasia-border);
+    border-radius: var(--radius-anasthasia-md);
+    padding: 0.25rem;
+    background: var(--color-anasthasia-surface);
+}
+
+.opacity-badge {
+    margin-left: 0.25rem;
+    border: 1px solid
+        color-mix(in srgb, var(--color-anasthasia-accent) 25%, var(--color-anasthasia-border));
+    border-radius: 999px;
+    padding: 0.08rem 0.35rem;
+    background: color-mix(
+        in srgb,
+        var(--color-anasthasia-accent) 8%,
+        var(--color-anasthasia-surface)
+    );
+    font-style: normal;
+    font-size: 0.75rem;
+    color: var(--color-anasthasia-accent);
+}
+
+.slider-field em {
+    margin-left: 0.25rem;
+    border: 1px solid
+        color-mix(in srgb, var(--color-anasthasia-accent) 25%, var(--color-anasthasia-border));
+    border-radius: 999px;
+    padding: 0.08rem 0.35rem;
+    background: color-mix(
+        in srgb,
+        var(--color-anasthasia-accent) 8%,
+        var(--color-anasthasia-surface)
+    );
+    font-style: normal;
+    color: var(--color-anasthasia-accent);
+}
+
+.slider-field input[type="range"] {
+    height: 1.5rem;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.slider-field input[type="range"]::-webkit-slider-runnable-track {
+    height: 0.42rem;
+    border: 1px solid var(--color-anasthasia-border);
+    border-radius: 999px;
+    background: linear-gradient(
+        to right,
+        var(--color-anasthasia-accent) 0 var(--slider-progress),
+        var(--color-anasthasia-panel) var(--slider-progress) 100%
+    );
+}
+
+.slider-field input[type="range"]::-webkit-slider-thumb {
+    width: 1.05rem;
+    height: 1.05rem;
+    margin-top: -0.38rem;
+    border: 2px solid var(--color-anasthasia-accent);
+    border-radius: 50%;
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--color-anasthasia-surface);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 16%);
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.slider-field input[type="range"]::-moz-range-track {
+    height: 0.42rem;
+    border: 1px solid var(--color-anasthasia-border);
+    border-radius: 999px;
+    background: var(--color-anasthasia-panel);
+}
+
+.slider-field input[type="range"]::-moz-range-progress {
+    height: 0.42rem;
+    border-radius: 999px;
+    background: var(--color-anasthasia-accent);
+}
+
+.slider-field input[type="range"]::-moz-range-thumb {
+    width: 0.85rem;
+    height: 0.85rem;
+    border: 2px solid var(--color-anasthasia-accent);
+    border-radius: 50%;
+    background: var(--color-anasthasia-surface);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 16%);
+}
+
+.slider-field input[type="range"]:hover::-webkit-slider-thumb {
+    transform: scale(1.08);
+}
+
+.slider-field input[type="range"]:focus-visible {
+    outline: none;
+}
+
+.slider-field input[type="range"]:focus-visible::-webkit-slider-thumb {
+    box-shadow:
+        0 1px 3px rgb(0 0 0 / 16%),
+        0 0 0 4px color-mix(in srgb, var(--color-anasthasia-accent) 18%, transparent);
+}
+
+.slider-field input[type="range"]:focus-visible::-moz-range-thumb {
+    box-shadow:
+        0 1px 3px rgb(0 0 0 / 16%),
+        0 0 0 4px color-mix(in srgb, var(--color-anasthasia-accent) 18%, transparent);
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 760px) {
+    .app-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.85rem;
+    }
+
+    .app-bar-tools {
+        justify-content: space-between;
+    }
+}

@@ -1,0 +1,99 @@
+.onboarding {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 1.25rem;
+    min-height: 100vh;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 1.75rem 1.5rem;
+}
+
+.onboarding-progress {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.onboarding-pip {
+    height: 0.32rem;
+    flex: 1;
+    border-radius: 999px;
+    background: var(--color-anasthasia-border);
+    transition: background 0.2s ease;
+}
+
+.onboarding-pip.done {
+    background: color-mix(
+        in srgb,
+        var(--color-anasthasia-accent) 55%,
+        var(--color-anasthasia-border)
+    );
+}
+
+.onboarding-pip.active {
+    background: var(--color-anasthasia-accent);
+}
+
+.onboarding-body {
+    align-self: start;
+    display: grid;
+    gap: 1rem;
+}
+
+.onboarding-body h1 {
+    margin: 0;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    letter-spacing: -0.03em;
+}
+
+.onboarding-hero {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.onboarding-hero > div {
+    display: grid;
+    gap: 0.2rem;
+}
+
+.onboarding-icon {
+    width: 5rem;
+    height: 5rem;
+    flex: none;
+    object-fit: contain;
+    filter: drop-shadow(
+        0 10px 20px color-mix(in srgb, var(--color-anasthasia-accent) 25%, transparent)
+    );
+}
+
+.onboarding-lead {
+    margin: 0;
+    max-width: 48ch;
+    color: var(--color-anasthasia-muted);
+    line-height: 1.55;
+}
+
+.onboarding-note {
+    margin: 0;
+    color: #d23c40;
+    font-size: 0.82rem;
+}
+
+.onboarding-steps {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--color-anasthasia-text);
+    line-height: 1.5;
+}
+
+.onboarding-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--color-anasthasia-border);
+}

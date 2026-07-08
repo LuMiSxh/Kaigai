@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <path
+    fill="none"
+    stroke="#ED8E13"
+    stroke-width="52"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    d="M286 438H328C352 438 358 366 384 366C414 366 414 528 446 528C478 528 480 404 512 404C542 404 546 474 574 474C602 474 606 438 632 438H738"
+  />
+</svg>

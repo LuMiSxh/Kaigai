@@ -1,0 +1,11 @@
+build
+.svelte-kit
+src-tauri
+src/types/bindings.ts
+pnpm-lock.yaml
+CHANGELOG.md
+README.md
+LICENSE-APACHE
+LICENSE-MIT
+.github
+audit

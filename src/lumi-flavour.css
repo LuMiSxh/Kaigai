@@ -1,0 +1,24 @@
+:root {
+    --color-anasthasia-bg: #f4f2f0;
+    --color-anasthasia-panel: #faf9f8;
+    --color-anasthasia-surface: #ffffff;
+    --color-anasthasia-border: rgba(43, 23, 16, 0.1);
+    --color-anasthasia-text: #161413;
+    --color-anasthasia-muted: #706862;
+    --color-anasthasia-accent: #b85c00;
+    --color-anasthasia-accent-strong: #8f4700;
+    --color-anasthasia-on-accent: #21150a;
+    --color-lumi-signal: #efa33d;
+    --color-lumi-signal-highlight: #ffd17d;
+    --background-image-anasthasia-accent-gradient: linear-gradient(
+        135deg,
+        #f8c76c 0%,
+        #efa33d 52%,
+        #dd7b12 100%
+    );
+    --radius-anasthasia-sm: 0.375rem;
+    --radius-anasthasia-md: 0.5rem;
+    --radius-anasthasia-lg: 0.75rem;
+    --radius-anasthasia-xl: 1rem;
+    --radius-anasthasia-2xl: 1.25rem;
+}

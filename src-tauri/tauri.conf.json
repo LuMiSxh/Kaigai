@@ -1,0 +1,68 @@
+{
+    "$schema": "https://schema.tauri.app/config/2",
+    "productName": "Kaigai",
+    "version": "1.0.0-rc.1",
+    "identifier": "com.lumisxh.kaigai",
+    "build": {
+        "beforeDevCommand": "pnpm run dev",
+        "devUrl": "http://localhost:1420",
+        "beforeBuildCommand": "pnpm run build",
+        "frontendDist": "../build"
+    },
+    "app": {
+        "macOSPrivateApi": true,
+        "windows": [
+            {
+                "label": "main",
+                "url": "/",
+                "title": "Kaigai",
+                "width": 640,
+                "height": 150,
+                "minWidth": 280,
+                "minHeight": 80,
+                "decorations": false,
+                "transparent": true,
+                "shadow": false,
+                "alwaysOnTop": true,
+                "visibleOnAllWorkspaces": true,
+                "skipTaskbar": true,
+                "center": true,
+                "visible": false
+            },
+            {
+                "label": "onboarding",
+                "url": "onboarding/",
+                "title": "Welcome to Kaigai",
+                "width": 760,
+                "height": 660,
+                "minWidth": 560,
+                "minHeight": 520,
+                "center": true,
+                "visible": false
+            },
+            {
+                "label": "settings",
+                "url": "settings/",
+                "title": "Kaigai Settings",
+                "width": 900,
+                "height": 780,
+                "minWidth": 620,
+                "minHeight": 520,
+                "center": true,
+                "visible": false
+            }
+        ],
+        "security": {
+            "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; object-src 'none'; frame-src 'none'; base-uri 'self'"
+        }
+    },
+    "bundle": {
+        "active": true,
+        "targets": "all",
+        "macOS": {
+            "minimumSystemVersion": "12.0"
+        },
+        "resources": ["resources/bin/*", "resources/models/*"],
+        "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
+    }
+}

@@ -1,0 +1,137 @@
+.developer-shell {
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    width: min(100%, 1240px);
+    height: 100vh;
+    overflow: hidden;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+.developer-shell :global(.app-bar) {
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.85rem;
+}
+
+:global(.telemetry-panel) {
+    margin-bottom: 0.75rem;
+}
+
+:global(.developer-log-panel) {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+}
+
+:global(.developer-log-panel > div:last-child) {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+}
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+    gap: 0.25rem;
+}
+
+.stat {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+    border: 1px solid var(--color-anasthasia-border);
+    border-radius: var(--radius-anasthasia-lg);
+    padding: 0.7rem 0.8rem;
+    background: linear-gradient(
+        150deg,
+        var(--color-anasthasia-surface),
+        var(--color-anasthasia-panel)
+    );
+}
+
+.stat-label {
+    color: var(--color-anasthasia-muted);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.stat-value {
+    overflow: hidden;
+    color: var(--color-anasthasia-text);
+    font-size: 1.12rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stat-sub {
+    overflow: hidden;
+    color: var(--color-anasthasia-muted);
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stat[data-tone="good"] .stat-value {
+    color: #1f9d57;
+}
+
+.stat[data-tone="warn"] .stat-value {
+    color: #d23c40;
+}
+
+.developer-note {
+    margin: -0.25rem 0 0.8rem;
+    color: var(--color-anasthasia-muted);
+    font-size: 0.82rem;
+}
+
+.log-surface {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+    border: 1px solid #2a211b;
+    border-radius: var(--radius-anasthasia-md);
+    background: #0c0a09;
+}
+
+.log-viewport {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 0.55rem 0;
+    font: 0.72rem/1.55 var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+}
+
+.log-line {
+    display: grid;
+    grid-template-columns: 3.1rem 1fr;
+    gap: 0.7rem;
+    padding: 0.12rem 0.85rem;
+}
+
+.log-line:hover {
+    background: #16110d;
+}
+
+.log-line > span {
+    color: #765b47;
+    text-align: right;
+    user-select: none;
+}
+
+.log-line code {
+    color: #d7cec8;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.log-empty {
+    padding: 2.5rem;
+    color: #8d8179;
+    text-align: center;
+}

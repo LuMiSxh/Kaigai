@@ -1,0 +1,43 @@
+[package]
+name = "kaigai"
+version = "1.0.0-rc.1"
+description = "Local Japanese livestream subtitles"
+authors = ["LuMiSxh"]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+
+[lib]
+name = "kaigai_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+sha2 = "0.10"
+tauri-build = { version = "2", features = [] }
+ureq = { version = "3.3.0", default-features = false, features = ["rustls"] }
+zip = { version = "4.6.1", default-features = false, features = ["deflate"] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
+tauri-specta = { version = "=2.0.0-rc.24", features = ["derive", "typescript"] }
+specta = { version = "=2.0.0-rc.24", features = ["derive"] }
+specta-typescript = "0.0.11"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+dirs = "6"
+futures-util = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json"] }
+sha2 = "0.10"
+tokio = { version = "1", features = ["fs", "io-util"] }
+zip = { version = "4.6.1", default-features = false, features = ["deflate"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+whisper-rs = { version = "0.16", features = ["metal", "coreml"] }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+whisper-rs = "0.16"
