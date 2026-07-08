@@ -74,6 +74,11 @@ export type AppSettings = {
 	inferenceBackend?: string,
 	sourceLanguage?: string,
 	task?: string,
+	/**
+	 *  "stable" waits for final utterance boundaries before rendering
+	 *  translation; "live" also renders rolling partials for lower latency.
+	 */
+	captionMode?: string,
 	chunkMode?: string,
 	/**
 	 *  Silero probability preset: "high" detects quieter speech, "strict"

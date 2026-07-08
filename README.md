@@ -31,6 +31,8 @@ VTuber corpus, Core ML/no-Core ML matrix, and multi-speaker result slicing.
 The current recommendation is in
 [docs/translation-benchmark-findings.md](docs/translation-benchmark-findings.md).
 The ASR-to-MT RC2 track is in [docs/rc2-asr-mt-plan.md](docs/rc2-asr-mt-plan.md).
+Release quality criteria are in
+[docs/release-quality-gates.md](docs/release-quality-gates.md).
 
 ## License
 

@@ -89,6 +89,15 @@
         </div>
         <div class="settings-row">
             <div class="settings-row-label">
+                <span class="anasthasia-label">Caption mode</span>
+                <InfoTip
+                    text="Stable waits for final utterance boundaries and keeps the last good caption during short pauses. Live shows rolling drafts sooner, with more churn."
+                />
+            </div>
+            <Select options={settingOptions.captionMode} bind:value={settings.captionMode} />
+        </div>
+        <div class="settings-row">
+            <div class="settings-row-label">
                 <span class="anasthasia-label">Line cutting</span>
                 <InfoTip
                     text="Adaptive listens for natural pauses so lines break at sentences; Fixed cuts on a steady timer."

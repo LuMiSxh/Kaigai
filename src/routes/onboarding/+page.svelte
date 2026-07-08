@@ -286,6 +286,18 @@
                 </div>
                 <div class="field">
                     <div class="field-head">
+                        <span class="anasthasia-label">Caption mode</span>
+                        <InfoTip
+                            text="Stable waits for final utterance boundaries and is recommended for translated livestreams. Live is lower-latency but less steady."
+                        />
+                    </div>
+                    <Select
+                        options={settingOptions.captionMode}
+                        bind:value={settings.captionMode}
+                    />
+                </div>
+                <div class="field">
+                    <div class="field-head">
                         <span class="anasthasia-label">Line cutting</span>
                         <InfoTip
                             text="Adaptive listens for natural pauses so lines break at sentences; Fixed cuts on a steady timer."

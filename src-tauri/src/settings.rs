@@ -33,6 +33,9 @@ pub struct AppSettings {
     pub inference_backend: String,
     pub source_language: String,
     pub task: String,
+    /// "stable" waits for final utterance boundaries before rendering
+    /// translation; "live" also renders rolling partials for lower latency.
+    pub caption_mode: String,
     // Chunking
     pub chunk_mode: String,
     /// Silero probability preset: "high" detects quieter speech, "strict"
@@ -75,6 +78,7 @@ impl Default for AppSettings {
             inference_backend: "coreml".into(),
             source_language: "ja".into(),
             task: "translate".into(),
+            caption_mode: "stable".into(),
             chunk_mode: "adaptive".into(),
             vad_sensitivity: "balanced".into(),
             minimum_chunk_ms: 1_000,
@@ -208,6 +212,7 @@ pub fn validate(settings: &AppSettings) -> Result<(), String> {
         "source language",
     )?;
     choice(&settings.task, &["translate", "transcribe"], "task")?;
+    choice(&settings.caption_mode, &["stable", "live"], "caption mode")?;
     choice(&settings.chunk_mode, &["adaptive", "fixed"], "chunk mode")?;
     choice(
         &settings.vad_sensitivity,
@@ -348,6 +353,17 @@ mod tests {
         assert!(
             validate(&AppSettings {
                 vad_sensitivity: "extreme".into(),
+                ..AppSettings::default()
+            })
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_caption_mode() {
+        assert!(
+            validate(&AppSettings {
+                caption_mode: "maybe-live".into(),
                 ..AppSettings::default()
             })
             .is_err()

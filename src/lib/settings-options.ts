@@ -10,6 +10,10 @@ export const settingOptions = {
         { value: "translate", label: "Translate to English" },
         { value: "transcribe", label: "Transcribe source language" },
     ],
+    captionMode: [
+        { value: "stable", label: "Stable · recommended" },
+        { value: "live", label: "Live · lower latency" },
+    ],
     language: [
         { value: "ja", label: "Japanese" },
         { value: "ko", label: "Korean" },

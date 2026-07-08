@@ -73,10 +73,11 @@ style/emoji and was far slower than even `large-v3` direct translation on the
 45-second Watame sample.
 
 Current decision: keep direct Whisper translation as default and use `medium`
-with Core ML for new users. ASR-to-MT is not faster than `medium` after the
-translation step, and it is worse qualitatively in the measured OPUS/Qwen
-candidates. Keep ASR-to-MT as an experimental benchmark path, not as the RC
-default.
+with Core ML for new users. Product default should be Stable caption mode:
+translated rolling partials are suppressed unless the user explicitly chooses
+Live mode. ASR-to-MT is not faster than `medium` after the translation step, and
+it is worse qualitatively in the measured OPUS/Qwen candidates. Keep ASR-to-MT
+as an experimental benchmark path, not as the RC default.
 
 ## Hallucination filtering
 
@@ -96,6 +97,10 @@ Implemented mitigations:
   a source-language decode for that window before keeping them.
 - collapse long source/decoder repetition runs such as repeated Japanese
   syllables, repeated Japanese phrase units, and repeated identical words.
+- suppress translated rolling partials in Stable caption mode so final
+  utterance captions are favored over unstable low-latency drafts.
+- reject very low-speech translation windows and weak short low-speech
+  translations.
 
 On Watame clips with `small`, `medium`, and `large-v3`, strong subtitle-artifact
 phrase hits dropped from 7 before the post-filter change to 0 after it. Remaining

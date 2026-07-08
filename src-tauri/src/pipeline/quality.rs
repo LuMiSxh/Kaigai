@@ -3,6 +3,8 @@ use crate::settings::AppSettings;
 use super::stabilizer::squash;
 
 const MIN_ROLLING_TRANSLATION_SPEECH_MS: u64 = 900;
+const MIN_FINAL_TRANSLATION_SPEECH_MS: u64 = 420;
+const MIN_ANY_TRANSLATION_SPEECH_MS: u64 = 250;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct QualityDecision {
@@ -33,6 +35,7 @@ impl QualityDecision {
 /// empty partial updates, or duplicate partials that only churn the overlay.
 pub struct CaptionQualityGate {
     translate: bool,
+    stable_mode: bool,
     last_partial_key: String,
 }
 
@@ -40,6 +43,7 @@ impl CaptionQualityGate {
     pub fn new(settings: &AppSettings) -> Self {
         Self {
             translate: settings.task == "translate",
+            stable_mode: settings.caption_mode == "stable",
             last_partial_key: String::new(),
         }
     }
@@ -57,6 +61,16 @@ impl CaptionQualityGate {
         if is_dominant_repeated_word_run(text) {
             return QualityDecision::reject("dominant-repetition");
         }
+        if self.translate && speech_ms < MIN_ANY_TRANSLATION_SPEECH_MS {
+            return QualityDecision::reject("too-little-speech");
+        }
+        if final_window
+            && self.translate
+            && speech_ms < MIN_FINAL_TRANSLATION_SPEECH_MS
+            && is_weak_short_translation(text)
+        {
+            return QualityDecision::reject("weak-final-translation");
+        }
         if !final_window
             && self.translate
             && speech_ms < MIN_ROLLING_TRANSLATION_SPEECH_MS
@@ -71,6 +85,9 @@ impl CaptionQualityGate {
         let key = squash(&format!("{stable_text} {unstable_text}"));
         if key.is_empty() {
             return QualityDecision::reject("empty-partial");
+        }
+        if self.translate && self.stable_mode {
+            return QualityDecision::reject("stable-mode-partial");
         }
         if key == self.last_partial_key {
             return QualityDecision::reject("duplicate-partial");
@@ -132,10 +149,24 @@ mod tests {
         })
     }
 
+    fn live_translate_gate() -> CaptionQualityGate {
+        CaptionQualityGate::new(&AppSettings {
+            caption_mode: "live".into(),
+            ..AppSettings::default()
+        })
+    }
+
     #[test]
     fn rejects_weak_low_speech_rolling_translation() {
         let gate = translate_gate();
-        let decision = gate.evaluate_inference_text("I see.", false, 320, 1);
+        let decision = gate.evaluate_inference_text("I see.", false, 200, 1);
+        assert_eq!(decision, QualityDecision::reject("too-little-speech"));
+    }
+
+    #[test]
+    fn rejects_weak_rolling_translation_in_live_mode() {
+        let gate = live_translate_gate();
+        let decision = gate.evaluate_inference_text("I see.", false, 700, 1);
         assert_eq!(
             decision,
             QualityDecision::reject("weak-rolling-translation")
@@ -145,8 +176,15 @@ mod tests {
     #[test]
     fn keeps_short_final_translation() {
         let gate = translate_gate();
-        let decision = gate.evaluate_inference_text("I see.", true, 320, 1);
+        let decision = gate.evaluate_inference_text("I see.", true, 600, 1);
         assert_eq!(decision, QualityDecision::allow("accepted"));
+    }
+
+    #[test]
+    fn rejects_tiny_speech_final_translation() {
+        let gate = translate_gate();
+        let decision = gate.evaluate_inference_text("I see.", true, 320, 1);
+        assert_eq!(decision, QualityDecision::reject("weak-final-translation"));
     }
 
     #[test]
@@ -159,6 +197,19 @@ mod tests {
     #[test]
     fn rejects_empty_and_duplicate_partials() {
         let mut gate = translate_gate();
+        assert_eq!(
+            gate.evaluate_partial("", ""),
+            QualityDecision::reject("empty-partial")
+        );
+        assert_eq!(
+            gate.evaluate_partial("hello", ""),
+            QualityDecision::reject("stable-mode-partial")
+        );
+    }
+
+    #[test]
+    fn live_mode_rejects_empty_and_duplicate_partials() {
+        let mut gate = live_translate_gate();
         assert_eq!(
             gate.evaluate_partial("", ""),
             QualityDecision::reject("empty-partial")
