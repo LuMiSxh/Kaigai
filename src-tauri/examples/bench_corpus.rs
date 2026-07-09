@@ -73,15 +73,12 @@ struct SummaryRow {
 }
 
 fn main() -> Result<(), String> {
-    let corpus_path = env::var("KAIGAI_BENCH_CORPUS")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| default_manifest_path());
-    let model_dir = env::var("KAIGAI_MODEL_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| default_model_dir());
-    let output_path = env::var("KAIGAI_BENCH_OUTPUT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| default_output_path());
+    let corpus_path =
+        env::var("KAIGAI_BENCH_CORPUS").map_or_else(|_| default_manifest_path(), PathBuf::from);
+    let model_dir =
+        env::var("KAIGAI_MODEL_DIR").map_or_else(|_| default_model_dir(), PathBuf::from);
+    let output_path =
+        env::var("KAIGAI_BENCH_OUTPUT").map_or_else(|_| default_output_path(), PathBuf::from);
     let decode_mode = env::var("KAIGAI_BENCH_DECODE").unwrap_or_else(|_| "streaming".into());
     let window_ms = env_u64("KAIGAI_BENCH_WINDOW_MS", 6_000);
     let overlap_ms = env_u64("KAIGAI_BENCH_OVERLAP_MS", 600);
@@ -102,7 +99,7 @@ fn main() -> Result<(), String> {
 
     let mut runs = Vec::new();
     for model in MODELS {
-        if !matches_filter(&model_filter, model.id) {
+        if !matches_filter(model_filter.as_ref(), model.id) {
             continue;
         }
         let coreml_model = model_dir.join(format!("ggml-{}.bin", model.id));
@@ -116,16 +113,16 @@ fn main() -> Result<(), String> {
             &["transcribe"]
         };
         for task in tasks {
-            if !matches_filter(&task_filter, task) {
+            if !matches_filter(task_filter.as_ref(), task) {
                 continue;
             }
-            if matches_filter(&backend_filter, "coreml") {
+            if matches_filter(backend_filter.as_ref(), "coreml") {
                 run_model(
                     &mut runs,
                     &manifest,
                     &audio,
-                    &clip_filter,
-                    &speaker_filter,
+                    clip_filter.as_ref(),
+                    speaker_filter.as_ref(),
                     model.id,
                     "coreml",
                     task,
@@ -135,14 +132,14 @@ fn main() -> Result<(), String> {
                     overlap_ms,
                 )?;
             }
-            if matches_filter(&backend_filter, "metal") {
+            if matches_filter(backend_filter.as_ref(), "metal") {
                 let no_coreml_model = no_coreml_model_path(&model_dir, model.id, &coreml_model)?;
                 run_model(
                     &mut runs,
                     &manifest,
                     &audio,
-                    &clip_filter,
-                    &speaker_filter,
+                    clip_filter.as_ref(),
+                    speaker_filter.as_ref(),
                     model.id,
                     "metal",
                     task,
@@ -177,12 +174,16 @@ fn main() -> Result<(), String> {
     Ok(())
 }
 
+// One call's worth of run configuration for a benchmark CLI tool — splitting
+// it into a struct wouldn't reduce what the caller has to supply, just move
+// it behind another name.
+#[allow(clippy::too_many_arguments)]
 fn run_model(
     runs: &mut Vec<ClipRun>,
     manifest: &benchmark::CorpusManifest,
     audio: &BTreeMap<String, Vec<f32>>,
-    clip_filter: &Option<Vec<String>>,
-    speaker_filter: &Option<Vec<String>>,
+    clip_filter: Option<&Vec<String>>,
+    speaker_filter: Option<&Vec<String>>,
     model: &str,
     backend: &str,
     task: &str,
@@ -215,6 +216,9 @@ fn run_model(
     Ok(())
 }
 
+// Inference timings are milliseconds well below 2^52; precision loss in the
+// averaged report numbers is irrelevant at that scale.
+#[allow(clippy::cast_precision_loss)]
 fn summarize(runs: &[ClipRun]) -> Vec<SummaryRow> {
     let mut groups: BTreeMap<(&str, &str, &str), Vec<&ClipRun>> = BTreeMap::new();
     for run in runs {
@@ -291,12 +295,13 @@ fn csv_filter(name: &str) -> Option<Vec<String>> {
     })
 }
 
-fn matches_filter(filter: &Option<Vec<String>>, value: &str) -> bool {
-    filter
-        .as_ref()
-        .is_none_or(|values| values.iter().any(|candidate| candidate == value))
+fn matches_filter(filter: Option<&Vec<String>>, value: &str) -> bool {
+    filter.is_none_or(|values| values.iter().any(|candidate| candidate == value))
 }
 
+// A benchmark corpus is a few dozen clips; `values.len()` never comes close
+// to the point where converting it to f64 would lose precision.
+#[allow(clippy::cast_precision_loss)]
 fn average(values: &[f64]) -> f64 {
     if values.is_empty() {
         return 0.0;
@@ -352,6 +357,5 @@ fn default_model_dir() -> PathBuf {
 fn current_timestamp() -> String {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_secs().to_string())
-        .unwrap_or_else(|_| "0".into())
+        .map_or_else(|_| "0".into(), |duration| duration.as_secs().to_string())
 }

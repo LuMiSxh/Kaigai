@@ -19,7 +19,16 @@ use crate::{
 // Elapsed-millis (u128 -> u64) truncates only after ~584 million years of
 // continuous capture, and the inference/chunk ratio is a display metric —
 // precision loss is irrelevant below 2^52ms (~142,000 years).
-#[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+//
+// This function is long because it's one linear pipeline stage (no engine ->
+// metrics only; else transcribe -> quality gate -> finalize or partial
+// update) — splitting it up would trade a single readable sequence for
+// several tightly-coupled helpers sharing most of these same parameters.
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::too_many_lines
+)]
 pub fn process(
     app: &AppHandle,
     whisper: &mut Option<WhisperEngine>,

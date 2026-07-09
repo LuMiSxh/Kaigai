@@ -80,6 +80,11 @@ pub struct BenchmarkEngine {
 }
 
 impl BenchmarkEngine {
+    /// Loads a Whisper model for benchmarking.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the model fails to load.
     pub fn load(model_path: &Path, task: &str) -> Result<Self, String> {
         let settings = AppSettings {
             model_path: model_path.to_string_lossy().into_owned(),
@@ -96,6 +101,14 @@ impl BenchmarkEngine {
         })
     }
 
+    /// Transcribes a whole clip in one pass and reports timing.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if transcription fails.
+    // Clip/inference timings are milliseconds well below 2^52; precision
+    // loss in the reported realtime factor is irrelevant at that scale.
+    #[allow(clippy::cast_precision_loss)]
     pub fn run_clip(
         &mut self,
         model: &str,
@@ -138,6 +151,17 @@ impl BenchmarkEngine {
         })
     }
 
+    /// Transcribes a clip in simulated live windows (the same decode shape
+    /// the app uses), reporting per-window and aggregate timing.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if transcription fails.
+    // Clip/inference timings are milliseconds well below 2^52; precision
+    // loss in the reported realtime factor is irrelevant at that scale.
+    // The model/backend/task/window/overlap labels are one call's worth of
+    // benchmark-report metadata, not state worth bundling into a struct.
+    #[allow(clippy::cast_precision_loss, clippy::too_many_arguments)]
     pub fn run_clip_streaming(
         &mut self,
         model: &str,
@@ -230,6 +254,12 @@ fn join_stable_text(texts: Vec<String>) -> String {
     output.join(" ")
 }
 
+/// Reads and validates a benchmark corpus manifest.
+///
+/// # Errors
+///
+/// Returns an error if the file can't be read, isn't valid JSON, or doesn't
+/// match [`BENCH_SAMPLE_RATE_HZ`].
 pub fn read_manifest(path: &Path) -> Result<CorpusManifest, String> {
     let bytes = std::fs::read(path).map_err(|error| error.to_string())?;
     let manifest: CorpusManifest =
@@ -243,6 +273,12 @@ pub fn read_manifest(path: &Path) -> Result<CorpusManifest, String> {
     Ok(manifest)
 }
 
+/// Reads a mono 16 kHz 16-bit PCM WAV file into normalized `f32` samples.
+///
+/// # Errors
+///
+/// Returns an error if the file can't be opened or isn't mono 16 kHz 16-bit
+/// PCM.
 pub fn read_wav_mono_16k(path: &Path) -> Result<Vec<f32>, String> {
     let mut reader = hound::WavReader::open(path).map_err(|error| error.to_string())?;
     let spec = reader.spec();

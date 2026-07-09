@@ -8,12 +8,13 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use kaigai_lib::benchmark::{self, BenchmarkEngine};
 
 fn bench_translation_corpus(criterion: &mut Criterion) {
-    let manifest_path = env::var("KAIGAI_BENCH_CORPUS")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
+    let manifest_path = env::var("KAIGAI_BENCH_CORPUS").map_or_else(
+        |_| {
             PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                 .join("../benchmarks/corpus/generated/manifest.json")
-        });
+        },
+        PathBuf::from,
+    );
     if !manifest_path.is_file() {
         eprintln!(
             "skip corpus benchmark: {} does not exist; run pnpm bench:prepare first",
@@ -22,13 +23,14 @@ fn bench_translation_corpus(criterion: &mut Criterion) {
         return;
     }
 
-    let model_dir = env::var("KAIGAI_MODEL_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
+    let model_dir = env::var("KAIGAI_MODEL_DIR").map_or_else(
+        |_| {
             dirs::data_dir()
                 .unwrap_or_else(env::temp_dir)
                 .join("com.lumisxh.kaigai/models")
-        });
+        },
+        PathBuf::from,
+    );
     let model = env::var("KAIGAI_BENCH_MODEL").unwrap_or_else(|_| "small".into());
     let backend = env::var("KAIGAI_BENCH_BACKEND").unwrap_or_else(|_| "coreml".into());
     let task = env::var("KAIGAI_BENCH_TASK").unwrap_or_else(|_| "translate".into());
