@@ -117,7 +117,7 @@ pub fn system_yt_dlp_available() -> bool {
 /// The PATH a login shell would compute. A GUI app launched from Finder/Dock
 /// inherits launchd's bare PATH, not the user's shell profile — yt-dlp needs
 /// the fuller one on PATH itself (not just to be located) to find a JS
-/// runtime (deno/node) for solving YouTube's PO-token challenge, or it
+/// runtime (deno/node) for solving `YouTube`'s PO-token challenge, or it
 /// silently returns "No video formats found" instead of an error.
 #[cfg(not(target_os = "windows"))]
 pub fn login_shell_path() -> Option<String> {
