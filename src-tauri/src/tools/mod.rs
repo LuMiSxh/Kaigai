@@ -114,23 +114,51 @@ pub fn system_yt_dlp_available() -> bool {
     find_system_yt_dlp().is_some()
 }
 
-/// The PATH a login shell would compute. A GUI app launched from Finder/Dock
-/// inherits launchd's bare PATH, not the user's shell profile — yt-dlp needs
-/// the fuller one on PATH itself (not just to be located) to find a JS
-/// runtime (deno/node) for solving `YouTube`'s PO-token challenge, or it
-/// silently returns "No video formats found" instead of an error.
+/// The PATH the user's actual interactive shell would compute. A GUI app
+/// launched from Finder/Dock inherits launchd's bare PATH, not the user's
+/// shell profile, so external tools yt-dlp shells out to (or a future
+/// PO-token provider plugin, which needs `node`/`deno` on PATH) are only
+/// visible if they happen to live somewhere launchd's PATH or
+/// `/etc/paths.d` already covers.
+///
+/// Runs `$SHELL -ilc` rather than `/bin/sh -lc`: a plain login shell only
+/// sources `/etc/profile` and `~/.profile`, which misses PATH exports that
+/// live in `~/.zshrc`/`~/.bashrc` — exactly where per-user tool managers
+/// like nvm/fnm/volta/pyenv commonly put them. Interactive shells can print
+/// arbitrary banners/warnings to stdout (a fastfetch/neofetch call in
+/// `.zshrc` is common), so the PATH is wrapped in sentinels and everything
+/// else is discarded rather than trusted to be clean.
 #[cfg(not(target_os = "windows"))]
 pub fn login_shell_path() -> Option<String> {
-    let output = Command::new("/bin/sh")
-        .args(["-lc", "printf %s \"$PATH\""])
-        .output()
+    const BEGIN: &str = "__KAIGAI_PATH_BEGIN__";
+    const END: &str = "__KAIGAI_PATH_END__";
+
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
+    let command = format!("printf '%s%s%s' {BEGIN} \"$PATH\" {END}");
+    let child = Command::new(&shell)
+        .args(["-ilc", &command])
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
         .ok()?;
-    output
-        .status
-        .success()
-        .then(|| String::from_utf8(output.stdout).ok())
-        .flatten()
-        .filter(|path| !path.is_empty())
+
+    // A broken or slow shell rc (a hung network call, waiting on a TTY that
+    // isn't there) shouldn't block starting a stream — kill it after a few
+    // seconds. This races an extremely unlikely PID reuse if the child
+    // already exited on its own; acceptable for a convenience timeout.
+    let pid = child.id();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        let _ = Command::new("kill").args(["-9", &pid.to_string()]).status();
+    });
+
+    let output = child.wait_with_output().ok()?;
+    let text = String::from_utf8(output.stdout).ok()?;
+    let start = text.find(BEGIN)? + BEGIN.len();
+    let end = start + text[start..].find(END)?;
+    let path = &text[start..end];
+    (!path.is_empty()).then(|| path.to_owned())
 }
 
 #[cfg(target_os = "windows")]
@@ -311,5 +339,18 @@ fn status_for(tool: Tool, source: ToolSource, path: &Path) -> ToolStatus {
         source,
         path: Some(path.to_string_lossy().into_owned()),
         version,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn login_shell_path_resolves_a_nonempty_colon_separated_path() {
+        let path = login_shell_path().expect("a login shell should resolve some PATH");
+        assert!(!path.is_empty());
+        assert!(path.contains('/'));
     }
 }
