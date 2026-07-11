@@ -109,6 +109,14 @@ export type AppSettings = {
 	 *  ships bundled with the app and is never resolved at runtime.
 	 */
 	ytDlpSource?: string,
+	/**
+	 *  Whether yt-dlp is told to use Kaigai's bundled `QuickJS` ("bundled",
+	 *  the default — works regardless of what the user has installed) to
+	 *  solve `YouTube`'s JS challenges, or left to find its own runtime on
+	 *  `PATH` ("system" — yt-dlp tries Deno by default, nothing else,
+	 *  unless the user already has one of its supported runtimes set up).
+	 */
+	jsRuntimeSource?: string,
 	// Whether the first-run setup tour has been completed.
 	onboarded?: boolean,
 };
@@ -195,7 +203,7 @@ export type SubtitlePartialEvent = {
 	revision: number,
 };
 
-export type Tool = "yt-dlp" | "ffmpeg";
+export type Tool = "yt-dlp" | "ffmpeg" | "quick-js";
 
 export type ToolSource = "managed" | "bundled" | "path" | "missing";
 

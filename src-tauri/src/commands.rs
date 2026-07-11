@@ -215,6 +215,7 @@ pub async fn get_tool_statuses(app: AppHandle) -> Vec<ToolStatus> {
         vec![
             tools::status(&app, Tool::YtDlp),
             tools::status(&app, Tool::Ffmpeg),
+            tools::status(&app, Tool::QuickJs),
         ]
     })
     .await

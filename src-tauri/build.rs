@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-/// How to get the raw ffmpeg binary out of a downloaded payload.
+/// How to get the raw binary out of a downloaded payload.
 enum Archive {
     /// The download itself is the raw binary.
     Raw,
@@ -11,7 +11,7 @@ enum Archive {
     TarXz(&'static str),
 }
 
-struct FfmpegSource {
+struct SidecarSource {
     target: &'static str,
     url: &'static str,
     sha256: &'static str,
@@ -22,16 +22,16 @@ struct FfmpegSource {
 // hashed by hand before being committed, because not every upstream build
 // publishes its own checksum (evermeet.cx's macOS builds only ship a GPG
 // signature, and have no Apple Silicon build at all). Bump url/sha256
-// together when refreshing a pin; `stage_ffmpeg` re-fetches automatically
+// together when refreshing a pin; `stage_sidecar` re-fetches automatically
 // once the pinned hash here no longer matches what's already staged.
-const FFMPEG_SOURCES: &[FfmpegSource] = &[
-    FfmpegSource {
+const FFMPEG_SOURCES: &[SidecarSource] = &[
+    SidecarSource {
         target: "aarch64-apple-darwin",
         url: "https://github.com/descriptinc/ffmpeg-ffprobe-static/releases/download/b6.1.2-rc.1/ffmpeg-darwin-arm64",
         sha256: "9f865039102a1139c7057d7f21ddaacd106d602fa3af1f99b70f43d520439b8c",
         archive: Archive::Raw,
     },
-    FfmpegSource {
+    SidecarSource {
         // BtbN republishes the contents at this URL over time (it's their
         // rolling "latest" tag), so this pin may need refreshing whenever
         // verification starts failing here.
@@ -40,7 +40,7 @@ const FFMPEG_SOURCES: &[FfmpegSource] = &[
         sha256: "e71db3aabcbefc9ac92f90c0e50e06fb11dff21026f091803936b0e725d4a164",
         archive: Archive::Zip("ffmpeg-n8.1-latest-win64-lgpl-8.1/bin/ffmpeg.exe"),
     },
-    FfmpegSource {
+    SidecarSource {
         // Not a shipped release target today (publish.yml only builds macOS
         // and Windows) — this exists so CI's Linux runners, which compile
         // for this target just to lint/test, stage a real binary instead of
@@ -52,6 +52,35 @@ const FFMPEG_SOURCES: &[FfmpegSource] = &[
     },
 ];
 
+// yt-dlp needs an external JS runtime to solve YouTube's "n" signature
+// challenge (see https://github.com/yt-dlp/yt-dlp/wiki/EJS); without one it
+// silently returns fewer/no formats instead of erroring. QuickJS-NG ships
+// tiny (~2MB, vs Deno's ~30-50MB) prebuilt single-file binaries for exactly
+// our three targets, so we bundle it as the guaranteed-available runtime
+// rather than hoping the user has Deno/Node on PATH.
+const QUICKJS_SOURCES: &[SidecarSource] = &[
+    SidecarSource {
+        target: "aarch64-apple-darwin",
+        url: "https://github.com/quickjs-ng/quickjs/releases/download/v0.15.1/qjs-darwin",
+        sha256: "badc31a289050d56f1d184651736bfa6399ef0ad40db6b210b8a88a3d34be36a",
+        archive: Archive::Raw,
+    },
+    SidecarSource {
+        target: "x86_64-pc-windows-msvc",
+        url: "https://github.com/quickjs-ng/quickjs/releases/download/v0.15.1/qjs-windows-x86_64.exe",
+        sha256: "5ea527b0405f0f3d11904c8722a4f1df9b631a4beed2bf988d0a831eb9f8e913",
+        archive: Archive::Raw,
+    },
+    SidecarSource {
+        // See the matching FFMPEG_SOURCES entry: not a shipped target today,
+        // staged so Linux CI runs against a real binary too.
+        target: "x86_64-unknown-linux-gnu",
+        url: "https://github.com/quickjs-ng/quickjs/releases/download/v0.15.1/qjs-linux-x86_64",
+        sha256: "c015660c38e7960669b112dafa3740cd6ce29b3d42066a64da1bd042fbccac07",
+        archive: Archive::Raw,
+    },
+];
+
 const SILERO_VAD_URL: &str =
     "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin?download=true";
 const SILERO_VAD_SHA256: &str = "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987";
@@ -60,7 +89,8 @@ const SILERO_VAD_FILE: &str = "ggml-silero-v6.2.0.bin";
 fn main() {
     let target = std::env::var("TARGET").expect("Cargo must provide TARGET");
     println!("cargo:rustc-env=KAIGAI_TARGET_TRIPLE={target}");
-    stage_ffmpeg(&target);
+    stage_sidecar("ffmpeg", &target, FFMPEG_SOURCES);
+    stage_sidecar("qjs", &target, QUICKJS_SOURCES);
     stage_silero_vad(&target);
     tauri_build::build();
 }
@@ -91,14 +121,14 @@ fn stage_silero_vad(target: &str) {
     fs::write(marker, SILERO_VAD_SHA256).expect("failed to write Silero VAD pin marker");
 }
 
-/// Downloads the pinned ffmpeg sidecar for `target` into `resources/bin/` if
-/// it isn't already staged there, verifying it against a hash we computed
-/// ourselves. Targets without a pinned entry are skipped with a warning
-/// rather than failing, so `cargo check`/`clippy`/`test` never need network
-/// access on a target we haven't bothered pinning.
-fn stage_ffmpeg(target: &str) {
-    let Some(source) = FFMPEG_SOURCES.iter().find(|source| source.target == target) else {
-        println!("cargo:warning=no pinned ffmpeg build for target {target}; skipping");
+/// Downloads the pinned `tool_name` sidecar for `target` into
+/// `resources/bin/` if it isn't already staged there, verifying it against a
+/// hash we computed ourselves. Targets without a pinned entry are skipped
+/// with a warning rather than failing, so `cargo check`/`clippy`/`test`
+/// never need network access on a target we haven't bothered pinning.
+fn stage_sidecar(tool_name: &str, target: &str, sources: &[SidecarSource]) {
+    let Some(source) = sources.iter().find(|source| source.target == target) else {
+        println!("cargo:warning=no pinned {tool_name} build for target {target}; skipping");
         return;
     };
 
@@ -110,7 +140,7 @@ fn stage_ffmpeg(target: &str) {
     } else {
         ""
     };
-    let destination = bin_dir.join(format!("ffmpeg-{target}{extension}"));
+    let destination = bin_dir.join(format!("{tool_name}-{target}{extension}"));
     let marker = destination.with_extension("pin");
 
     let already_staged = destination.is_file()
@@ -120,7 +150,7 @@ fn stage_ffmpeg(target: &str) {
     }
 
     println!(
-        "cargo:warning=fetching pinned ffmpeg for {target} (only happens when the pin changes)"
+        "cargo:warning=fetching pinned {tool_name} for {target} (only happens when the pin changes)"
     );
     fs::create_dir_all(&bin_dir).expect("failed to create resources/bin");
 
@@ -133,15 +163,15 @@ fn stage_ffmpeg(target: &str) {
     };
 
     let temporary = destination.with_extension("part");
-    fs::write(&temporary, &payload).expect("failed to write downloaded ffmpeg binary");
+    fs::write(&temporary, &payload).expect("failed to write downloaded sidecar binary");
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&temporary, fs::Permissions::from_mode(0o755))
-            .expect("failed to mark ffmpeg as executable");
+            .expect("failed to mark sidecar as executable");
     }
-    fs::rename(&temporary, &destination).expect("failed to install staged ffmpeg binary");
-    fs::write(&marker, source.sha256).expect("failed to write ffmpeg pin marker");
+    fs::rename(&temporary, &destination).expect("failed to install staged sidecar binary");
+    fs::write(&marker, source.sha256).expect("failed to write sidecar pin marker");
 }
 
 /// ffmpeg downloads run from 47MB (macOS) to 199MB (Windows zip); ureq caps
@@ -195,7 +225,7 @@ fn extract_tar_xz_entry(archive_bytes: &[u8], entry_path: &str) -> Vec<u8> {
     // archive in over stdin while also capturing a large extraction over
     // stdout risks both sides blocking on a full OS pipe at once.
     let out_dir = std::env::var("OUT_DIR").expect("Cargo must provide OUT_DIR");
-    let archive_path = Path::new(&out_dir).join("ffmpeg-download.tar.xz");
+    let archive_path = Path::new(&out_dir).join("sidecar-download.tar.xz");
     fs::write(&archive_path, archive_bytes).expect("failed to write archive to OUT_DIR");
 
     let output = Command::new("tar")

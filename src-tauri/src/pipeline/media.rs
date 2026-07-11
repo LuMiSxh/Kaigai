@@ -90,6 +90,7 @@ fn resolve_source(
         "--dump-single-json",
     ]);
     add_authentication(&mut command, settings);
+    add_js_runtime(&mut command, app, settings);
     let output = command
         .arg(stream_url)
         .stdin(Stdio::null())
@@ -142,6 +143,31 @@ fn add_authentication(command: &mut Command, settings: &AppSettings) {
             command.args(["--cookies", settings.cookie_file.trim()]);
         }
         _ => {}
+    }
+}
+
+/// yt-dlp only tries Deno by default for `YouTube`'s JS challenge-solving —
+/// every other supported runtime (including a user's own Node install) needs
+/// an explicit `--js-runtimes` flag. In "bundled" mode we point yt-dlp at
+/// Kaigai's pinned `QuickJS` sidecar so this works regardless of what's
+/// installed; "system" leaves yt-dlp to find its own runtime on the login
+/// shell's PATH. A missing bundled binary falls back to "system" behavior
+/// rather than failing the whole stream resolution.
+fn add_js_runtime(command: &mut Command, app: &AppHandle, settings: &AppSettings) {
+    if settings.js_runtime_source != "bundled" {
+        return;
+    }
+    match tools::resolve(app, Tool::QuickJs) {
+        Ok(path) => {
+            command.arg("--js-runtimes");
+            command.arg(format!("quickjs:{}", path.display()));
+        }
+        Err(error) => {
+            tracing::warn!(
+                error = %error,
+                "bundled QuickJS runtime unavailable, falling back to yt-dlp's own runtime detection"
+            );
+        }
     }
 }
 

@@ -6,6 +6,10 @@ export const settingOptions = {
         { value: "managed", label: "Managed by Kaigai" },
         { value: "system", label: "System install (PATH)" },
     ],
+    jsRuntimeSource: [
+        { value: "bundled", label: "Bundled (QuickJS) · recommended" },
+        { value: "system", label: "System install (PATH)" },
+    ],
     task: [
         { value: "translate", label: "Translate to English" },
         { value: "transcribe", label: "Transcribe source language" },

@@ -66,6 +66,12 @@ pub struct AppSettings {
     /// self-updated by `Kaigai` ("managed"). ffmpeg has no such choice: it
     /// ships bundled with the app and is never resolved at runtime.
     pub yt_dlp_source: String,
+    /// Whether yt-dlp is told to use Kaigai's bundled `QuickJS` ("bundled",
+    /// the default — works regardless of what the user has installed) to
+    /// solve `YouTube`'s JS challenges, or left to find its own runtime on
+    /// `PATH` ("system" — yt-dlp tries Deno by default, nothing else,
+    /// unless the user already has one of its supported runtimes set up).
+    pub js_runtime_source: String,
     /// Whether the first-run setup tour has been completed.
     pub onboarded: bool,
 }
@@ -100,6 +106,7 @@ impl Default for AppSettings {
             cookie_file: String::new(),
             automatic_tool_updates: true,
             yt_dlp_source: "managed".into(),
+            js_runtime_source: "bundled".into(),
             onboarded: false,
         }
     }
@@ -233,6 +240,11 @@ pub fn validate(settings: &AppSettings) -> Result<(), String> {
         &settings.yt_dlp_source,
         &["managed", "system"],
         "yt-dlp source",
+    )?;
+    choice(
+        &settings.js_runtime_source,
+        &["bundled", "system"],
+        "JS runtime source",
     )?;
 
     if !(16..=96).contains(&settings.font_size_px) {

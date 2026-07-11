@@ -1,7 +1,8 @@
 <script lang="ts">
-    import { Badge, Button, Card, Panel, PathDisplay, Toggle } from "anasthasia";
+    import { Badge, Button, Card, Panel, PathDisplay, Select, Toggle } from "anasthasia";
     import InfoTip from "$lib/InfoTip.svelte";
     import YtDlpSetup from "$lib/setup/YtDlpSetup.svelte";
+    import { settingOptions } from "$lib/settings-options";
     import type { AppSettings, ModelDownloadEvent, ToolStatus } from "../../types/bindings";
 
     type CompleteAppSettings = Required<AppSettings>;
@@ -76,6 +77,18 @@
             {installYtDlpUpdate}
             {cancelYtDlpDownload}
         />
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <span class="anasthasia-label">JS runtime</span>
+                <InfoTip
+                    text="yt-dlp needs a JavaScript runtime to solve YouTube's challenges on some streams. Bundled always works; system relies on your own Deno/Node install."
+                />
+            </div>
+            <Select
+                options={settingOptions.jsRuntimeSource}
+                bind:value={settings.jsRuntimeSource}
+            />
+        </div>
     </div>
 </Panel>
 

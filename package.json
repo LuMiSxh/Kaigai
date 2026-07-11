@@ -3,7 +3,7 @@
     "version": "1.0.0-rc.1",
     "description": "Local Japanese livestream subtitles",
     "type": "module",
-    "packageManager": "pnpm@11.9.0",
+    "packageManager": "pnpm@11.11.0",
     "scripts": {
         "dev": "vite",
         "build": "vite build",

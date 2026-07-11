@@ -21,6 +21,7 @@ mod ytdlp;
 pub enum Tool {
     YtDlp,
     Ffmpeg,
+    QuickJs,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Type)]
@@ -46,12 +47,13 @@ impl Tool {
         match self {
             Self::YtDlp => "yt-dlp",
             Self::Ffmpeg => "ffmpeg",
+            Self::QuickJs => "qjs",
         }
     }
 
-    /// File name carrying the Rust target triple, used both for the ffmpeg
-    /// resource bundled at build time and the yt-dlp binary `Kaigai` manages
-    /// itself — keeping one naming convention for both.
+    /// File name carrying the Rust target triple, used for both build-time-
+    /// bundled resources (ffmpeg, `QuickJS`) and the yt-dlp binary `Kaigai`
+    /// manages itself — keeping one naming convention for all three.
     fn platform_file_name(self) -> String {
         let suffix = if env::consts::OS == "windows" {
             ".exe"
@@ -68,7 +70,7 @@ impl Tool {
 
     fn version_arg(self) -> &'static str {
         match self {
-            Self::YtDlp => "--version",
+            Self::YtDlp | Self::QuickJs => "--version",
             Self::Ffmpeg => "-version",
         }
     }
@@ -261,9 +263,12 @@ pub fn status(app: &AppHandle, tool: Tool) -> ToolStatus {
 
 fn resolve_with_source(app: &AppHandle, tool: Tool) -> Result<ToolStatus, String> {
     match tool {
-        // ffmpeg always ships bundled (staged by build.rs); it's never user-
-        // replaceable, so there's no managed or PATH tier to check.
-        Tool::Ffmpeg => resolve_bundled(app, tool),
+        // ffmpeg and the bundled QuickJS runtime always ship bundled (staged
+        // by build.rs); neither is user-replaceable, so there's no managed
+        // or PATH tier to check. Whether QuickJS is actually *used* for a
+        // given yt-dlp call is a separate settings.js_runtime_source choice,
+        // not a resolution-source choice.
+        Tool::Ffmpeg | Tool::QuickJs => resolve_bundled(app, tool),
         Tool::YtDlp => resolve_yt_dlp(app),
     }
 }
