@@ -1,13 +1,12 @@
 use std::{fs, path::Path};
 
-/// How to get the raw binary out of a downloaded payload.
+/// How to pull the actual binary out of a downloaded payload.
 enum Archive {
-    /// The download itself is the raw binary.
+    /// Download is the binary, nothing to extract.
     Raw,
     Zip(&'static str),
-    /// Extracted by shelling out to the system `tar` (available on every CI
-    /// runner and dev machine this pin actually targets), rather than
-    /// pulling in tar/xz crates for one Linux-only entry.
+    /// Shells out to the system `tar` instead of pulling in a tar/xz crate
+    /// for the one entry that needs it.
     TarXz(&'static str),
 }
 
@@ -18,12 +17,10 @@ struct SidecarSource {
     archive: Archive,
 }
 
-// Pinned by us, not auto-detected: every entry here was downloaded and
-// hashed by hand before being committed, because not every upstream build
-// publishes its own checksum (evermeet.cx's macOS builds only ship a GPG
-// signature, and have no Apple Silicon build at all). Bump url/sha256
-// together when refreshing a pin; `stage_sidecar` re-fetches automatically
-// once the pinned hash here no longer matches what's already staged.
+// Hand-pinned, not auto-detected: some upstreams (evermeet.cx's macOS
+// builds) only ship a GPG signature, not a checksum, so we downloaded and
+// hashed these ourselves. Bump url + sha256 together to refresh a pin —
+// `stage_sidecar` re-fetches on its own once the hash here stops matching.
 const FFMPEG_SOURCES: &[SidecarSource] = &[
     SidecarSource {
         target: "aarch64-apple-darwin",
@@ -32,32 +29,31 @@ const FFMPEG_SOURCES: &[SidecarSource] = &[
         archive: Archive::Raw,
     },
     SidecarSource {
-        // BtbN republishes the contents at this URL over time (it's their
-        // rolling "latest" tag), so this pin may need refreshing whenever
-        // verification starts failing here.
+        // BtbN's `latest` tag is a moving target — same file name, contents
+        // replaced in place on every rebuild — so it silently breaks this
+        // pin every so often. Their dated `autobuild-*` tags are immutable
+        // (the filename itself is commit-hash-suffixed), so pin to one of
+        // those instead. Bump to a newer `autobuild-*` tag when the n8.1
+        // branch itself moves on.
         target: "x86_64-pc-windows-msvc",
-        url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-lgpl-8.1.zip",
-        sha256: "e71db3aabcbefc9ac92f90c0e50e06fb11dff21026f091803936b0e725d4a164",
-        archive: Archive::Zip("ffmpeg-n8.1-latest-win64-lgpl-8.1/bin/ffmpeg.exe"),
+        url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-10-13-44/ffmpeg-n8.1.2-22-g94138f6973-win64-lgpl-8.1.zip",
+        sha256: "fb8cad4111deb1eb46f7ece876b58621c41df2a472b77b1630b6f799c9a9b9b2",
+        archive: Archive::Zip("ffmpeg-n8.1.2-22-g94138f6973-win64-lgpl-8.1/bin/ffmpeg.exe"),
     },
     SidecarSource {
-        // Not a shipped release target today (publish.yml only builds macOS
-        // and Windows) — this exists so CI's Linux runners, which compile
-        // for this target just to lint/test, stage a real binary instead of
-        // relying solely on the resources/bin/README.md placeholder.
+        // See the Windows entry above for why this points at a dated
+        // `autobuild-*` tag rather than `latest`.
         target: "x86_64-unknown-linux-gnu",
-        url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-lgpl-8.1.tar.xz",
-        sha256: "acbeb2219eebc24f63117bfda4457fc3f58e7fff857ad68b12b89a753fc7b783",
-        archive: Archive::TarXz("ffmpeg-n8.1-latest-linux64-lgpl-8.1/bin/ffmpeg"),
+        url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-10-13-44/ffmpeg-n8.1.2-22-g94138f6973-linux64-lgpl-8.1.tar.xz",
+        sha256: "42f964d0b2bb6a5460fd309119e8623d04192ea15bdf08bc330b214a40aa9814",
+        archive: Archive::TarXz("ffmpeg-n8.1.2-22-g94138f6973-linux64-lgpl-8.1/bin/ffmpeg"),
     },
 ];
 
 // yt-dlp needs an external JS runtime to solve YouTube's "n" signature
-// challenge (see https://github.com/yt-dlp/yt-dlp/wiki/EJS); without one it
-// silently returns fewer/no formats instead of erroring. QuickJS-NG ships
-// tiny (~2MB, vs Deno's ~30-50MB) prebuilt single-file binaries for exactly
-// our three targets, so we bundle it as the guaranteed-available runtime
-// rather than hoping the user has Deno/Node on PATH.
+// challenge, or it silently returns fewer formats instead of erroring.
+// QuickJS-NG ships tiny (~2MB vs Deno's ~30-50MB) single-file binaries for
+// all three targets, so we bundle it instead of hoping Deno/Node is on PATH.
 const QUICKJS_SOURCES: &[SidecarSource] = &[
     SidecarSource {
         target: "aarch64-apple-darwin",
@@ -72,8 +68,6 @@ const QUICKJS_SOURCES: &[SidecarSource] = &[
         archive: Archive::Raw,
     },
     SidecarSource {
-        // See the matching FFMPEG_SOURCES entry: not a shipped target today,
-        // staged so Linux CI runs against a real binary too.
         target: "x86_64-unknown-linux-gnu",
         url: "https://github.com/quickjs-ng/quickjs/releases/download/v0.15.1/qjs-linux-x86_64",
         sha256: "c015660c38e7960669b112dafa3740cd6ce29b3d42066a64da1bd042fbccac07",
@@ -95,10 +89,8 @@ fn main() {
     tauri_build::build();
 }
 
-/// Stage whisper.cpp's official cross-platform Silero VAD model. The file
-/// isn't platform-specific, so unlike ffmpeg there's no per-target pin list
-/// — every target we compile for, including CI's Linux lint/test runners,
-/// gets the same download.
+/// Stages whisper.cpp's Silero VAD model. Not platform-specific like ffmpeg,
+/// so every target gets the same download — no per-target pin list needed.
 fn stage_silero_vad(target: &str) {
     let manifest_dir =
         std::env::var("CARGO_MANIFEST_DIR").expect("Cargo must provide CARGO_MANIFEST_DIR");
@@ -122,10 +114,9 @@ fn stage_silero_vad(target: &str) {
 }
 
 /// Downloads the pinned `tool_name` sidecar for `target` into
-/// `resources/bin/` if it isn't already staged there, verifying it against a
-/// hash we computed ourselves. Targets without a pinned entry are skipped
-/// with a warning rather than failing, so `cargo check`/`clippy`/`test`
-/// never need network access on a target we haven't bothered pinning.
+/// `resources/bin/` if it isn't already staged there, and checks it against
+/// our own hash. Unpinned targets are skipped with a warning rather than
+/// failing, so `cargo check`/`clippy`/`test` never need network access.
 fn stage_sidecar(tool_name: &str, target: &str, sources: &[SidecarSource]) {
     let Some(source) = sources.iter().find(|source| source.target == target) else {
         println!("cargo:warning=no pinned {tool_name} build for target {target}; skipping");
@@ -174,8 +165,8 @@ fn stage_sidecar(tool_name: &str, target: &str, sources: &[SidecarSource]) {
     fs::write(&marker, source.sha256).expect("failed to write sidecar pin marker");
 }
 
-/// ffmpeg downloads run from 47MB (macOS) to 199MB (Windows zip); ureq caps
-/// `read_to_vec()` at 10MB by default, so raise it well above either.
+/// ureq caps `read_to_vec()` at 10MB by default; ffmpeg downloads run up to
+/// ~200MB (the Windows zip), so raise the limit well above that.
 const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
 
 fn download(url: &str) -> Vec<u8> {
@@ -213,17 +204,14 @@ fn extract_zip_entry(archive_bytes: &[u8], entry_path: &str) -> Vec<u8> {
     bytes
 }
 
-/// Shells out to the system `tar` to pull one file out of a `.tar.xz`. Only
-/// ever used for the Linux ffmpeg pin, so relying on `tar`/`xz` already being
-/// on the box (true on every GitHub-hosted Linux runner) beats adding tar/xz
-/// crates for a single entry.
+/// Pulls one file out of a `.tar.xz` via the system `tar`, since it's only
+/// needed for the Linux ffmpeg pin and every Linux box already has it.
 fn extract_tar_xz_entry(archive_bytes: &[u8], entry_path: &str) -> Vec<u8> {
     use std::process::Command;
 
-    // Feed tar from a real file rather than stdin: the extracted ffmpeg
-    // binary is well over a pipe buffer's worth of bytes, and piping a large
-    // archive in over stdin while also capturing a large extraction over
-    // stdout risks both sides blocking on a full OS pipe at once.
+    // Write to a real file rather than piping in: the extracted ffmpeg
+    // binary is big enough that feeding tar over stdin while also reading
+    // its stdout risks both sides blocking on a full pipe.
     let out_dir = std::env::var("OUT_DIR").expect("Cargo must provide OUT_DIR");
     let archive_path = Path::new(&out_dir).join("sidecar-download.tar.xz");
     fs::write(&archive_path, archive_bytes).expect("failed to write archive to OUT_DIR");

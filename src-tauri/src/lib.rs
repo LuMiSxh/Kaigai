@@ -1,7 +1,6 @@
-// Needed both for the debug-only runtime export in run() and for the
-// export_bindings test below — cfg(test) doesn't imply debug_assertions, and
-// the bench profile disables debug assertions even while building the "lib
-// test" target that cargo bench --no-run also compiles.
+// cfg(test) doesn't imply debug_assertions, and the bench profile disables
+// debug assertions even while compiling the "lib test" target — so both
+// need to be listed for the export below and the export_bindings test to build.
 #[cfg(any(debug_assertions, test))]
 use specta_typescript::Typescript;
 use tauri::WindowEvent;

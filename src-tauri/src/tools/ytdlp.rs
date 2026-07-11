@@ -23,11 +23,17 @@ struct Asset {
     browser_download_url: String,
 }
 
-fn platform_asset_name() -> &'static str {
-    if cfg!(target_os = "windows") {
-        "yt-dlp.exe"
-    } else {
-        "yt-dlp_macos"
+/// The self-contained (no system Python required) release asset for our
+/// target triple. Keyed by `KAIGAI_TARGET_TRIPLE`, the same build-time
+/// triple `build.rs`/`tools::mod` use to pin ffmpeg and `QuickJS`, rather
+/// than just `target_os` — so an unsupported target fails loudly here
+/// instead of quietly grabbing the wrong platform's binary.
+fn platform_asset_name() -> Result<&'static str, String> {
+    match env!("KAIGAI_TARGET_TRIPLE") {
+        "aarch64-apple-darwin" => Ok("yt-dlp_macos"),
+        "x86_64-pc-windows-msvc" => Ok("yt-dlp.exe"),
+        "x86_64-unknown-linux-gnu" => Ok("yt-dlp_linux"),
+        other => Err(format!("no managed yt-dlp build for target {other}")),
     }
 }
 
@@ -41,7 +47,7 @@ pub async fn latest_version() -> Result<String, String> {
 /// directory, replacing whatever (if anything) was there before.
 pub async fn install(app: AppHandle, cancel: Arc<AtomicBool>) -> Result<ToolStatus, String> {
     let release = fetch_release().await?;
-    let asset = find_asset(&release, platform_asset_name())?;
+    let asset = find_asset(&release, platform_asset_name()?)?;
     let sums_asset = find_asset(&release, "SHA2-256SUMS")?;
 
     let sums_text = reqwest::Client::new()

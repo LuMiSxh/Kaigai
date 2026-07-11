@@ -8,7 +8,6 @@ node_modules
 !.env.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
-/src-tauri/resources/bin/ffmpeg-*
 /src-tauri/resources/models/*.bin
 /src-tauri/resources/models/*.pin
 /benchmarks/corpus/audio/

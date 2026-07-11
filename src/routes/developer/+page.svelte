@@ -25,8 +25,13 @@
     let autoScroll = $state(true);
     let logViewport: HTMLDivElement | undefined = $state();
 
-    let backend = $derived.by(() =>
-        snapshot?.settings.inferenceBackend === "coreml" ? "Core ML" : "Metal",
+    const BACKEND_LABELS: Record<string, string> = {
+        coreml: "Core ML",
+        metal: "Metal",
+        cpu: "CPU",
+    };
+    let backend = $derived.by(
+        () => BACKEND_LABELS[snapshot?.settings.inferenceBackend ?? ""] ?? "Metal",
     );
     let rtf = $derived.by(() => metrics?.realtimeFactor ?? null);
     let rtfTone = $derived(rtf == null ? "" : rtf > 1 ? "warn" : "good");

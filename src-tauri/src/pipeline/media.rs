@@ -146,13 +146,10 @@ fn add_authentication(command: &mut Command, settings: &AppSettings) {
     }
 }
 
-/// yt-dlp only tries Deno by default for `YouTube`'s JS challenge-solving —
-/// every other supported runtime (including a user's own Node install) needs
-/// an explicit `--js-runtimes` flag. In "bundled" mode we point yt-dlp at
-/// Kaigai's pinned `QuickJS` sidecar so this works regardless of what's
-/// installed; "system" leaves yt-dlp to find its own runtime on the login
-/// shell's PATH. A missing bundled binary falls back to "system" behavior
-/// rather than failing the whole stream resolution.
+/// yt-dlp only tries Deno by default for `YouTube`'s JS challenges — every
+/// other runtime needs an explicit `--js-runtimes` flag. "bundled" points it
+/// at Kaigai's pinned `QuickJS` sidecar; a missing binary falls back to
+/// "system" behavior instead of failing stream resolution outright.
 fn add_js_runtime(command: &mut Command, app: &AppHandle, settings: &AppSettings) {
     if settings.js_runtime_source != "bundled" {
         return;

@@ -266,7 +266,6 @@ pub async fn reset_app(app: AppHandle) -> Result<(), String> {
         }
     }
 
-    // Delete downloaded models and managed tools; ignore errors if absent.
     let data_dir = app
         .path()
         .app_data_dir()
@@ -274,7 +273,6 @@ pub async fn reset_app(app: AppHandle) -> Result<(), String> {
     let _ = fs::remove_dir_all(data_dir.join("models")).await;
     let _ = fs::remove_dir_all(data_dir.join("tools")).await;
 
-    // Reset settings and mark as un-onboarded.
     let fresh = AppSettings::default();
     settings::save(&app, &fresh).map_err(|error| error.clone())?;
     *app.state::<AppState>()
@@ -282,7 +280,6 @@ pub async fn reset_app(app: AppHandle) -> Result<(), String> {
         .lock()
         .map_err(|_| "settings lock poisoned")? = fresh;
 
-    // Send the user back to onboarding.
     crate::app::show_and_focus(&app, "onboarding");
     if let Some(window) = app.get_webview_window("settings") {
         let _ = window.hide();
@@ -337,9 +334,8 @@ pub fn hide_window(app: AppHandle, label: String) -> Result<(), String> {
 }
 
 pub fn apply_overlay_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), String> {
-    // Click-through is now driven per mode by the bar itself (interactive while
-    // taking input, click-through while showing live captions), so only the
-    // always-on-top preference is applied here.
+    // Click-through is now driven per-mode by the bar itself, so only
+    // always-on-top is applied here.
     if let Some(overlay) = app.get_webview_window("main") {
         overlay
             .set_always_on_top(settings.always_on_top)

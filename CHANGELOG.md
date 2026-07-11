@@ -9,6 +9,8 @@ All notable changes to Kaigai are documented in this file.
 - Local Whisper transcription and translation with Silero voice detection.
 - Adaptive live subtitles, model management and Apple Core ML support.
 - Managed yt-dlp, bundled ffmpeg and authenticated stream access.
+- Bundled QuickJS-NG runtime so yt-dlp can solve YouTube's "n" signature
+  challenge without needing Deno/Node on the user's PATH.
 - Tray controls, onboarding, settings and a debug-only developer console.
 - VTuber-focused translation benchmark suite with Watame-heavy long-form clips,
   Core ML vs. Metal model matrix tooling and Criterion hooks.
@@ -18,6 +20,7 @@ All notable changes to Kaigai are documented in this file.
   lower latency is preferred over caption stability.
 - Release quality-gate documentation and an architecture plan for future
   dual-pass Accuracy mode.
+- Linux release builds (AppImage/deb), alongside macOS and Windows.
 
 ### Changed
 
@@ -29,6 +32,16 @@ All notable changes to Kaigai are documented in this file.
 - Suppressed unstable rolling translation drafts in Stable caption mode so final
   utterance captions are favored over low-latency churn.
 - Improved model setup copy to describe Fast, Balanced and Accuracy tradeoffs.
+
+### Fixed
+
+- Managed yt-dlp installs on Linux now fetch the Linux binary instead of the
+  macOS one.
+- The inference backend shown in the developer console now reports CPU
+  correctly on Windows/Linux instead of always claiming Metal.
+- Windows/Linux ffmpeg pins now point at an immutable BtbN build instead of
+  their rolling `latest` tag, whose contents change in place and broke the
+  checksum pin without warning.
 
 ### Removed
 

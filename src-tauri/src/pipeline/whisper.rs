@@ -14,17 +14,15 @@ use crate::settings::AppSettings;
 
 /// whisper.cpp reports timestamps in centiseconds; multiply to get milliseconds.
 const WHISPER_TS_UNIT_MS: u64 = 10;
-/// Whisper exposes this probability but whisper.cpp does not apply its
-/// no-speech threshold in the short-window path. Apply the standard threshold
-/// ourselves before any text reaches the stabilizer.
+/// whisper.cpp doesn't apply its own no-speech threshold in the short-window
+/// path, so apply it ourselves before text reaches the stabilizer.
 const NO_SPEECH_THRESHOLD: f32 = 0.60;
 
 static LOGGING_HOOKS: Once = Once::new();
 
-/// Phrases Whisper hallucinates on near-silent or non-speech audio. It was
-/// trained heavily on `YouTube` captions, so silence collapses to these stock
-/// closers. We drop any segment that, ignoring case and punctuation, is exactly
-/// one of these. Exact match keeps real speech that merely contains the words.
+/// Stock `YouTube`-outro phrases Whisper hallucinates on silence/non-speech
+/// audio. Matched exactly (ignoring case/punctuation) so real speech that
+/// merely contains these words is kept.
 const HALLUCINATIONS: &[&str] = &[
     "thank you for watching",
     "thanks for watching",
@@ -239,9 +237,8 @@ impl WhisperEngine {
         params.set_language(Some(&self.language));
         params.set_translate(translate);
         params.set_no_context(true);
-        // Streaming windows are short and rendered as one caption. Avoid
-        // multi-segment decoder bookkeeping and cap pathological repetition
-        // loops without constraining normal six-second speech.
+        // One short window, rendered as one caption — skip multi-segment
+        // bookkeeping and cap runaway repetition loops.
         params.set_single_segment(true);
         params.set_max_tokens(128);
         params.set_temperature(0.0);

@@ -51,22 +51,20 @@ export const events = {
 /* Types */
 /**
  *  Messages pushed to the bar over a persistent [`Channel`] it registers at
- *  startup. Channels ride the same IPC path as commands, so delivery to the
- *  (transparent) bar window is reliable where broadcast events were not.
+ *  startup — same IPC path as commands, so delivery to the (transparent) bar
+ *  window is reliable where broadcast events were not.
  * 
- *  No `rename_all`: specta doesn't apply it to tagged-enum variant fields, so we
- *  keep `snake_case` on both sides to avoid a type/runtime mismatch.
+ *  No `rename_all`: specta doesn't apply it to tagged-enum variant fields, so
+ *  both sides stay `snake_case` to avoid a type/runtime mismatch.
  */
 export type AppFeed = { type: "State"; state: SessionStatus } | { type: "Subtitle"; start_ms: number; end_ms: number; text: string } | { type: "Partial"; stable_text: string; unstable_text: string } | { type: "Clear" } | { type: "Error"; message: string } | { type: "Settings"; settings: AppSettings };
 
 /**
- *  All persisted user settings. Kept as one flat struct so the serialized JSON
- *  and the generated TypeScript binding stay simple; the comments group the
- *  fields by concern (engine, chunking, overlay, authentication, maintenance).
+ *  All persisted user settings, kept as one flat struct so the JSON and the
+ *  generated TypeScript binding stay simple. Fields are grouped by concern below.
  * 
- *  `#[serde(default)]` makes deserialization forward-compatible: settings files
- *  written by an older version that lack newer fields fall back to the defaults
- *  instead of failing to load.
+ *  `#[serde(default)]`: settings from an older version missing newer fields
+ *  fall back to defaults instead of failing to load.
  */
 export type AppSettings = {
 	model?: string,
@@ -110,11 +108,9 @@ export type AppSettings = {
 	 */
 	ytDlpSource?: string,
 	/**
-	 *  Whether yt-dlp is told to use Kaigai's bundled `QuickJS` ("bundled",
-	 *  the default — works regardless of what the user has installed) to
-	 *  solve `YouTube`'s JS challenges, or left to find its own runtime on
-	 *  `PATH` ("system" — yt-dlp tries Deno by default, nothing else,
-	 *  unless the user already has one of its supported runtimes set up).
+	 *  "bundled" (default) points yt-dlp at Kaigai's `QuickJS` sidecar for
+	 *  `YouTube`'s JS challenges; "system" leaves it to find its own runtime
+	 *  on `PATH` (yt-dlp only tries Deno by default).
 	 */
 	jsRuntimeSource?: string,
 	// Whether the first-run setup tour has been completed.

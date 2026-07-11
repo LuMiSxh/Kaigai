@@ -21,6 +21,16 @@ use crate::{
 
 mod coreml;
 
+/// Backend label to report when Core ML isn't installed/active: whisper-rs
+/// is built with the Metal backend on macOS and plain CPU everywhere else.
+fn fallback_backend() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "metal"
+    } else {
+        "cpu"
+    }
+}
+
 // Mirrors the flat shape the frontend binds to directly; splitting these into
 // enums would break the generated TypeScript contract for no behavioral gain.
 #[allow(clippy::struct_excessive_bools)]
@@ -254,7 +264,7 @@ pub async fn uninstall(app: AppHandle, model_id: String) -> Result<ModelInfo, St
         .clone();
     if !current.model_path.is_empty() && Path::new(&current.model_path) == model_path {
         current.model_path.clear();
-        current.inference_backend = "metal".into();
+        current.inference_backend = fallback_backend().into();
         settings::save(&app, &current)?;
         *state
             .settings
@@ -331,7 +341,7 @@ fn activate(app: &AppHandle, model: &ModelDefinition, destination: &Path) -> Res
     ) {
         "coreml"
     } else {
-        "metal"
+        fallback_backend()
     };
     save_active_model(app, model.id, destination, backend)
 }
@@ -349,7 +359,7 @@ fn update_active_backend(app: &AppHandle, model_id: &str) -> Result<(), String> 
     let backend = if coreml::installed(&model_dir(app)?, model_id) {
         "coreml"
     } else {
-        "metal"
+        fallback_backend()
     };
     save_active_model(app, model_id, &PathBuf::from(current.model_path), backend)
 }

@@ -79,8 +79,7 @@ impl Signals {
         self.cancel.load(Ordering::Relaxed) || self.abort.load(Ordering::Relaxed)
     }
 
-    // Elapsed-millis (u128 -> u64) truncates only after ~584 million years of
-    // continuous capture; never a real concern for a live transcription session.
+    // u128 -> u64 millis is safe up to ~584M years of capture.
     #[allow(clippy::cast_possible_truncation)]
     fn capture_lag_ms(&self, audio_end_sample: usize) -> u64 {
         let first = self.first_data_ms.load(Ordering::Relaxed);
@@ -96,9 +95,8 @@ impl Signals {
     }
 }
 
-// `app` and `settings` are cloned into the spawned 'static reader/watchdog
-// threads below; owning them here avoids deref-clone gymnastics for a
-// one-time, non-hot-path clone of cheap-to-clone types.
+// Taking these by value avoids clone gymnastics for the 'static reader/
+// watchdog threads spawned below — cheap types, cloned once, off the hot path.
 #[allow(clippy::needless_pass_by_value)]
 pub fn run(
     app: AppHandle,
@@ -199,8 +197,7 @@ pub fn run(
     media_process.verify_exit()
 }
 
-// Elapsed-millis (u128 -> u64) truncates only after ~584 million years of
-// continuous capture; never a real concern for a live transcription session.
+// u128 -> u64 millis is safe up to ~584M years of capture.
 #[allow(clippy::cast_possible_truncation)]
 fn read_pcm(
     app: &AppHandle,
@@ -256,8 +253,7 @@ fn read_pcm(
 
 /// Record that PCM is flowing, transitioning to `Running` on first data and
 /// recovering from a watchdog-detected stall.
-// Elapsed-millis (u128 -> u64) truncates only after ~584 million years of
-// continuous capture; never a real concern for a live transcription session.
+// u128 -> u64 millis is safe up to ~584M years of capture.
 #[allow(clippy::cast_possible_truncation)]
 fn mark_alive(app: &AppHandle, signals: &Signals, running: &mut bool) {
     let now = signals.epoch.elapsed().as_millis() as u64;
@@ -278,8 +274,7 @@ fn mark_alive(app: &AppHandle, signals: &Signals, running: &mut bool) {
     }
 }
 
-// Elapsed-millis (u128 -> u64) truncates only after ~584 million years of
-// continuous capture; never a real concern for a live transcription session.
+// u128 -> u64 millis is safe up to ~584M years of capture.
 #[allow(clippy::cast_possible_truncation)]
 fn watch_for_stall(app: &AppHandle, signals: &Signals) {
     while !signals.stop_requested() && !signals.finished.load(Ordering::Relaxed) {

@@ -51,9 +51,9 @@ impl Tool {
         }
     }
 
-    /// File name carrying the Rust target triple, used for both build-time-
-    /// bundled resources (ffmpeg, `QuickJS`) and the yt-dlp binary `Kaigai`
-    /// manages itself — keeping one naming convention for all three.
+    /// File name including the target triple — same convention for the
+    /// build-time-bundled tools (ffmpeg, `QuickJS`) and the yt-dlp binary
+    /// `Kaigai` manages itself.
     fn platform_file_name(self) -> String {
         let suffix = if env::consts::OS == "windows" {
             ".exe"
@@ -93,10 +93,9 @@ pub fn yt_dlp_managed_path(app: &AppHandle) -> Result<PathBuf, String> {
 
 /// Locates a system yt-dlp using the platform's path-lookup utility.
 ///
-/// On macOS/Linux the lookup runs through a login shell (`/bin/sh -lc which
-/// yt-dlp`) so that the user's full PATH — including Homebrew at
-/// `/opt/homebrew/bin` — is visible even when the app is launched from the
-/// Dock rather than a terminal.
+/// macOS/Linux go through a login shell (`sh -lc which yt-dlp`) so Homebrew's
+/// `/opt/homebrew/bin` is visible even when launched from the Dock, not just
+/// a terminal.
 pub fn find_system_yt_dlp() -> Option<PathBuf> {
     let output = if cfg!(target_os = "windows") {
         Command::new("where").arg("yt-dlp").output()
@@ -117,19 +116,14 @@ pub fn system_yt_dlp_available() -> bool {
 }
 
 /// The PATH the user's actual interactive shell would compute. A GUI app
-/// launched from Finder/Dock inherits launchd's bare PATH, not the user's
-/// shell profile, so external tools yt-dlp shells out to (or a future
-/// PO-token provider plugin, which needs `node`/`deno` on PATH) are only
-/// visible if they happen to live somewhere launchd's PATH or
-/// `/etc/paths.d` already covers.
+/// launched from Finder/Dock only inherits launchd's bare PATH, so tools
+/// yt-dlp shells out to are invisible unless we go get the real one.
 ///
-/// Runs `$SHELL -ilc` rather than `/bin/sh -lc`: a plain login shell only
-/// sources `/etc/profile` and `~/.profile`, which misses PATH exports that
-/// live in `~/.zshrc`/`~/.bashrc` — exactly where per-user tool managers
-/// like nvm/fnm/volta/pyenv commonly put them. Interactive shells can print
-/// arbitrary banners/warnings to stdout (a fastfetch/neofetch call in
-/// `.zshrc` is common), so the PATH is wrapped in sentinels and everything
-/// else is discarded rather than trusted to be clean.
+/// Runs `$SHELL -ilc`, not `-lc`: a plain login shell skips `~/.zshrc` /
+/// `~/.bashrc`, which is exactly where nvm/fnm/volta/pyenv add PATH entries.
+/// Interactive shells can also print banners to stdout (fastfetch and
+/// friends), so the PATH is wrapped in sentinels and everything else is
+/// discarded.
 #[cfg(not(target_os = "windows"))]
 pub fn login_shell_path() -> Option<String> {
     const BEGIN: &str = "__KAIGAI_PATH_BEGIN__";
@@ -145,10 +139,7 @@ pub fn login_shell_path() -> Option<String> {
         .spawn()
         .ok()?;
 
-    // A broken or slow shell rc (a hung network call, waiting on a TTY that
-    // isn't there) shouldn't block starting a stream — kill it after a few
-    // seconds. This races an extremely unlikely PID reuse if the child
-    // already exited on its own; acceptable for a convenience timeout.
+    // Don't let a hung shell rc block startup — kill it after a few seconds.
     let pid = child.id();
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));
@@ -263,11 +254,8 @@ pub fn status(app: &AppHandle, tool: Tool) -> ToolStatus {
 
 fn resolve_with_source(app: &AppHandle, tool: Tool) -> Result<ToolStatus, String> {
     match tool {
-        // ffmpeg and the bundled QuickJS runtime always ship bundled (staged
-        // by build.rs); neither is user-replaceable, so there's no managed
-        // or PATH tier to check. Whether QuickJS is actually *used* for a
-        // given yt-dlp call is a separate settings.js_runtime_source choice,
-        // not a resolution-source choice.
+        // ffmpeg and QuickJS are always bundled (staged by build.rs) and
+        // aren't user-replaceable, so there's no managed/PATH tier to check.
         Tool::Ffmpeg | Tool::QuickJs => resolve_bundled(app, tool),
         Tool::YtDlp => resolve_yt_dlp(app),
     }
@@ -279,6 +267,10 @@ fn resolve_bundled(app: &AppHandle, tool: Tool) -> Result<ToolStatus, String> {
         .path()
         .resource_dir()
         .map_err(|error| error.to_string())?;
+    // A packaged app nests resources under `resources/` (matching the
+    // `resources/bin/*` glob in tauri.conf.json); `tauri dev` resolves
+    // straight into that same folder without the extra nesting. Check both
+    // so this works whether or not the app has actually been bundled.
     for bundled in [
         resource_dir.join("bin").join(&file_name),
         resource_dir.join("resources").join("bin").join(&file_name),

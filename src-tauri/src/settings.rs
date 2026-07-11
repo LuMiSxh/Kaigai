@@ -14,13 +14,11 @@ const LEGACY_IDENTIFIER: &str = "com.lumisxh.kaigaisub";
 pub const DEFAULT_FONT_FAMILY: &str =
     "system-ui, 'Hiragino Kaku Gothic ProN', 'Yu Gothic', Meiryo, sans-serif";
 
-/// All persisted user settings. Kept as one flat struct so the serialized JSON
-/// and the generated TypeScript binding stay simple; the comments group the
-/// fields by concern (engine, chunking, overlay, authentication, maintenance).
+/// All persisted user settings, kept as one flat struct so the JSON and the
+/// generated TypeScript binding stay simple. Fields are grouped by concern below.
 ///
-/// `#[serde(default)]` makes deserialization forward-compatible: settings files
-/// written by an older version that lack newer fields fall back to the defaults
-/// instead of failing to load.
+/// `#[serde(default)]`: settings from an older version missing newer fields
+/// fall back to defaults instead of failing to load.
 // Mirrors the flat shape the frontend binds to directly; splitting these into
 // enums would break the generated TypeScript contract for no behavioral gain.
 #[allow(clippy::struct_excessive_bools)]
@@ -66,11 +64,9 @@ pub struct AppSettings {
     /// self-updated by `Kaigai` ("managed"). ffmpeg has no such choice: it
     /// ships bundled with the app and is never resolved at runtime.
     pub yt_dlp_source: String,
-    /// Whether yt-dlp is told to use Kaigai's bundled `QuickJS` ("bundled",
-    /// the default — works regardless of what the user has installed) to
-    /// solve `YouTube`'s JS challenges, or left to find its own runtime on
-    /// `PATH` ("system" — yt-dlp tries Deno by default, nothing else,
-    /// unless the user already has one of its supported runtimes set up).
+    /// "bundled" (default) points yt-dlp at Kaigai's `QuickJS` sidecar for
+    /// `YouTube`'s JS challenges; "system" leaves it to find its own runtime
+    /// on `PATH` (yt-dlp only tries Deno by default).
     pub js_runtime_source: String,
     /// Whether the first-run setup tour has been completed.
     pub onboarded: bool,
@@ -81,7 +77,12 @@ impl Default for AppSettings {
         Self {
             model: "medium".into(),
             model_path: String::new(),
-            inference_backend: "coreml".into(),
+            inference_backend: if cfg!(target_os = "macos") {
+                "coreml"
+            } else {
+                "cpu"
+            }
+            .into(),
             source_language: "ja".into(),
             task: "translate".into(),
             caption_mode: "stable".into(),
@@ -210,7 +211,7 @@ pub fn save(app: &AppHandle, settings: &AppSettings) -> Result<(), String> {
 pub fn validate(settings: &AppSettings) -> Result<(), String> {
     choice(
         &settings.inference_backend,
-        &["metal", "coreml"],
+        &["metal", "coreml", "cpu"],
         "inference backend",
     )?;
     choice(

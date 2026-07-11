@@ -7,13 +7,11 @@ pub const SAMPLE_RATE: usize = 16_000;
 const FRAME_SAMPLES: usize = SAMPLE_RATE / 50;
 #[cfg(test)]
 const SPEECH_RMS_THRESHOLD: f32 = 0.008;
-/// Require sustained VAD activity before opening an utterance. One or two
-/// isolated 100ms positives are common over music and were previously followed
-/// by enough counted silence to make Whisper decode a mostly-empty window.
+/// Require sustained VAD activity before opening an utterance — a stray 100ms
+/// positive over music used to open one and then decode mostly silence.
 const SPEECH_START_MS: u32 = 240;
-/// After the first low-latency hypothesis, avoid decoding the entire growing
-/// window every second. A 1.5s cadence cuts repeated Whisper work substantially
-/// while still updating live captions between utterance boundaries.
+/// Cadence for re-decoding the growing window after the first hypothesis.
+/// 1.5s keeps captions updating without re-running Whisper every second.
 const PARTIAL_STEP_MS: u32 = 1_500;
 
 pub struct AudioWindow {

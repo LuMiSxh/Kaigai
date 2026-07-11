@@ -115,10 +115,9 @@ pub fn recent(_after_id: Option<u64>) -> Vec<DeveloperLogEntry> {
     Vec::new()
 }
 
-/// Redact secrets before any log line reaches disk, the developer console, or a
-/// diagnostics event. Applied both here (for sidecar output and the disk
-/// appender) and again in the in-memory writer, since those are independent
-/// sinks; the operation is idempotent so the double pass is harmless.
+/// Redact secrets before a log line reaches disk, the dev console, or a
+/// diagnostics event. Called here and again in the in-memory writer (separate
+/// sinks); idempotent, so the double pass is harmless.
 pub fn sanitize(message: &str) -> String {
     if message.contains("Cookie:") || message.contains("Authorization:") {
         return "[redacted authentication data]".into();
@@ -130,9 +129,8 @@ pub fn sanitize(message: &str) -> String {
         .join(" ")
 }
 
-/// Strip the query string from any URL-like token. Signed media URLs (from
-/// `googlevideo.com` and other CDNs alike) carry credentials in their query
-/// parameters, so the host is kept for context but the parameters are dropped.
+/// Strip the query string from any URL-like token — signed media URLs (e.g.
+/// `googlevideo.com`) carry credentials there. Keep the host for context.
 fn redact_token(token: &str) -> String {
     if token.contains("://")
         && let Some(index) = token.find('?')

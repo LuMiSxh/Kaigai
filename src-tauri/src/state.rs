@@ -23,11 +23,11 @@ pub enum SessionStatus {
 }
 
 /// Messages pushed to the bar over a persistent [`Channel`] it registers at
-/// startup. Channels ride the same IPC path as commands, so delivery to the
-/// (transparent) bar window is reliable where broadcast events were not.
+/// startup — same IPC path as commands, so delivery to the (transparent) bar
+/// window is reliable where broadcast events were not.
 ///
-/// No `rename_all`: specta doesn't apply it to tagged-enum variant fields, so we
-/// keep `snake_case` on both sides to avoid a type/runtime mismatch.
+/// No `rename_all`: specta doesn't apply it to tagged-enum variant fields, so
+/// both sides stay `snake_case` to avoid a type/runtime mismatch.
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(tag = "type")]
 pub enum AppFeed {
