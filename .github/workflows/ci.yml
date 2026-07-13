@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: Release tag to verify against package versions
+        required: false
+        type: string
+        default: ""
 
 jobs:
   frontend:
@@ -60,3 +67,27 @@ jobs:
         run: cargo test --manifest-path src-tauri/Cargo.toml export_bindings
       - name: Fail if bindings drifted
         run: git diff --exit-code src/types/bindings.ts
+
+  release-version:
+    if: inputs.release_tag != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Verify release versions
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          tag_version="${RELEASE_TAG#v}"
+          package_version="$(node -p "require('./package.json').version")"
+          tauri_version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          cargo_version="$(sed -n '/^\[package\]/,/^\[/{s/^version = \"\(.*\)\"/\1/p;}' src-tauri/Cargo.toml | head -1)"
+          if [ "$package_version" != "$tag_version" ] || \
+             [ "$tauri_version" != "$tag_version" ] || \
+             [ "$cargo_version" != "$tag_version" ]; then
+            echo "::error::Tag $tag_version does not match package.json=$package_version, tauri.conf.json=$tauri_version, Cargo.toml=$cargo_version"
+            exit 1
+          fi

@@ -18,65 +18,16 @@ env:
   CARGO_INCREMENTAL: "0"
 
 jobs:
-  validate:
+  ci:
+    name: CI
     permissions:
       contents: read
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 11.11.0
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
-          cache-on-failure: true
-
-      - name: Verify release versions
-        shell: bash
-        run: |
-          tag_version="${{ inputs.tag }}"
-          tag_version="${tag_version#v}"
-          package_version="$(node -p "require('./package.json').version")"
-          tauri_version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
-          cargo_version="$(sed -n '/^\[package\]/,/^\[/{s/^version = \"\\(.*\\)\"/\\1/p;}' src-tauri/Cargo.toml | head -1)"
-          for version in "$package_version" "$tauri_version" "$cargo_version"; do
-            if [ "$version" != "$tag_version" ]; then
-              echo "::error::Tag version $tag_version does not match package version $version"
-              exit 1
-            fi
-          done
-
-      - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check frontend
-        run: pnpm check
-
-      - name: Check Rust
-        run: pnpm check:rust
-
-      - name: Verify generated Specta bindings
-        shell: bash
-        run: |
-          pnpm bindings
-          git diff --exit-code -- src/types/bindings.ts
+    uses: ./.github/workflows/ci.yml
+    with:
+      release_tag: ${{ inputs.tag }}
 
   publish:
-    needs: validate
+    needs: ci
     permissions:
       contents: write
     strategy:
@@ -108,7 +59,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.6.0
+          version: 11.11.0
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -133,12 +84,13 @@ jobs:
       - name: Extract release notes
         id: changelog
         shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          version="${{ inputs.tag }}"
-          version="${version#v}"
+          version="${RELEASE_TAG#v}"
           awk "/^## \\[${version}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md > release_notes.md
           if [ ! -s release_notes.md ]; then
-            echo "KaigaiSub ${{ inputs.tag }}" > release_notes.md
+            echo "Kaigai $RELEASE_TAG" > release_notes.md
           fi
           {
             echo 'notes<<EOF'
@@ -150,17 +102,9 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ inputs.tag }}
-          releaseName: KaigaiSub ${{ inputs.tag }}
+          releaseName: Kaigai ${{ inputs.tag }}
           releaseBody: ${{ steps.changelog.outputs.notes }}
           releaseDraft: true
           prerelease: ${{ inputs.prerelease }}
