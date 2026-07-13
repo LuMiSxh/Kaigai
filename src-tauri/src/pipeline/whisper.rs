@@ -263,8 +263,8 @@ impl WhisperEngine {
             .map_err(|error| format!("Whisper inference failed: {error}"))?;
 
         if self.language == "auto" {
-            let detected = whisper_rs::get_lang_str(self.state.full_lang_id_from_state())
-                .unwrap_or("unknown");
+            let detected =
+                whisper_rs::get_lang_str(self.state.full_lang_id_from_state()).unwrap_or("unknown");
             tracing::debug!(detected, translate, "auto-detected window language");
         }
 
