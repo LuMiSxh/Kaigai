@@ -11,7 +11,7 @@ use tokio::fs as async_fs;
 
 use crate::{download, events::ModelDownloadEvent};
 
-use super::{ModelDefinition, huggingface_url};
+use super::{definitions::ModelDefinition, huggingface_url};
 
 pub struct CoreMlDefinition {
     pub size_bytes: u64,
