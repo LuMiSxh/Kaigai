@@ -123,7 +123,7 @@ actually download.
 
 ### Windows / x86-64
 
-- [ ] Install both the MSI and setup EXE on a clean x86-64 Windows machine.
+- [ ] Install the MSI on a clean x86-64 Windows machine.
 - [ ] Repeat the onboarding, model, yt-dlp, stream, overlay and shutdown checks
       above.
 - [ ] Confirm ffmpeg and QuickJS sidecars launch without PATH changes.
@@ -160,7 +160,7 @@ The `publish` GitHub Actions workflow is started manually.
       hide a failed target.
 - [ ] Review the draft release title and the notes extracted from
       `CHANGELOG.md`.
-- [ ] Confirm the expected DMG, MSI/EXE, AppImage and DEB assets are present.
+- [ ] Confirm the expected DMG, MSI, AppImage and DEB assets are present.
 - [ ] Put the Windows/Linux testing warning near the top of the release notes.
 - [ ] Download and open the macOS asset from the draft itself before publishing.
 - [ ] Publish the draft only after the artifact and quality checks are complete.

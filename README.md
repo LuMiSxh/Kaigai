@@ -84,7 +84,7 @@ Download the package for your platform from
 | Platform                 | Package                | Status               |
 | ------------------------ | ---------------------- | -------------------- |
 | macOS 12+, Apple Silicon | `.dmg`                 | Supported and tested |
-| Windows, x86-64          | `.msi` or setup `.exe` | **Untested**         |
+| Windows, x86-64          | `.msi`                 | **Untested**         |
 | Linux, x86-64            | `.AppImage` or `.deb`  | **Untested**         |
 
 On macOS, open the DMG and drag Kaigai into `Applications`. The first launch

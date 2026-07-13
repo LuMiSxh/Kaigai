@@ -2,7 +2,7 @@
 
 All notable changes to Kaigai are documented in this file.
 
-## [1.0.0-rc.1] - Unreleased
+## [1.0.0] - 2026-07-13
 
 ### Added
 
