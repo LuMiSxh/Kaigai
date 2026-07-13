@@ -1,6 +1,7 @@
 <script lang="ts">
     import "./overlay.css";
     import { getCurrentWindow } from "@tauri-apps/api/window";
+    import { SvelteMap } from "svelte/reactivity";
     import { Channel } from "@tauri-apps/api/core";
     import { Alert, Button, Input } from "anasthasia";
     import { onMountAsync } from "$lib/lifecycle";
@@ -37,10 +38,13 @@
     let subtitleOffsetMs = $state(0);
     let clickThrough = $state(true);
 
-    // Live caption line.
-    let lineText = $state("");
-    let lineFinal = $state(false);
-    let dimmed = $state(false);
+    // Rolling caption lines: newest at the bottom, at most two on screen so a
+    // fast final never flash-replaces the previous one before it can be read.
+    type CaptionLine = { id: number; text: string; final: boolean; dimmed: boolean };
+    const MAX_LINES = 2;
+    let lines: CaptionLine[] = $state([]);
+    let nextLineId = 0;
+    const lineTimers = new SvelteMap<number, ReturnType<typeof setTimeout>>();
 
     let card: HTMLDivElement | undefined = $state();
 
@@ -57,8 +61,6 @@
     // Draggable while taking input, or while live with click-through turned off.
     let draggable = $derived(mode === "input" || (mode === "live" && !clickThrough));
 
-    let silenceTimer: ReturnType<typeof setTimeout> | undefined;
-    let clearTimer: ReturnType<typeof setTimeout> | undefined;
     let errorTimer: ReturnType<typeof setTimeout> | undefined;
 
     // Click-through only while showing live captions AND the user wants it; the
@@ -91,8 +93,7 @@
         }
         return [
             () => {
-                clearTimeout(silenceTimer);
-                clearTimeout(clearTimer);
+                clearCaption();
                 clearTimeout(errorTimer);
             },
         ];
@@ -109,11 +110,7 @@
                 applySettings(message.settings);
                 break;
             case "Subtitle":
-                schedule(() => {
-                    lineText = message.text;
-                    lineFinal = true;
-                    wake();
-                });
+                schedule(() => showLine(message.text, true));
                 break;
             case "Partial": {
                 const text = [message.stable_text, message.unstable_text]
@@ -121,11 +118,7 @@
                     .join(" ")
                     .trim();
                 if (!text) return;
-                schedule(() => {
-                    lineText = text;
-                    lineFinal = false;
-                    wake();
-                });
+                schedule(() => showLine(text, false));
                 break;
             }
             case "Clear":
@@ -162,22 +155,50 @@
         else setTimeout(apply, delay);
     }
 
-    function wake() {
-        dimmed = false;
-        clearTimeout(silenceTimer);
-        clearTimeout(clearTimer);
-        silenceTimer = setTimeout(() => {
-            dimmed = true;
-            clearTimer = setTimeout(clearCaption, CLEAR_AFTER_FADE_MS);
-        }, FADE_AFTER_MS);
+    // A partial keeps updating the newest (non-final) line in place; a final
+    // seals it. The next caption then starts a fresh line below.
+    function showLine(text: string, final: boolean) {
+        const last = lines.at(-1);
+        if (last && !last.final) {
+            last.text = text;
+            last.final = final;
+            last.dimmed = false;
+            armExpiry(last.id);
+        } else {
+            lines.push({ id: nextLineId, text, final, dimmed: false });
+            armExpiry(nextLineId);
+            nextLineId += 1;
+            while (lines.length > MAX_LINES) dropLine(lines[0].id);
+        }
+    }
+
+    function armExpiry(id: number) {
+        clearTimeout(lineTimers.get(id));
+        lineTimers.set(
+            id,
+            setTimeout(() => {
+                const line = lines.find((candidate) => candidate.id === id);
+                if (!line) return;
+                line.dimmed = true;
+                lineTimers.set(
+                    id,
+                    setTimeout(() => dropLine(id), CLEAR_AFTER_FADE_MS),
+                );
+            }, FADE_AFTER_MS),
+        );
+    }
+
+    function dropLine(id: number) {
+        clearTimeout(lineTimers.get(id));
+        lineTimers.delete(id);
+        const index = lines.findIndex((candidate) => candidate.id === id);
+        if (index !== -1) lines.splice(index, 1);
     }
 
     function clearCaption() {
-        clearTimeout(silenceTimer);
-        clearTimeout(clearTimer);
-        lineText = "";
-        lineFinal = false;
-        dimmed = false;
+        for (const timer of lineTimers.values()) clearTimeout(timer);
+        lineTimers.clear();
+        lines.splice(0, lines.length);
     }
 
     function showError(message: string) {
@@ -288,18 +309,25 @@
         </div>
     {:else if mode === "error"}
         <Alert variant="danger" live="assertive" class="bar-alert">{errorText}</Alert>
-    {:else if lineText}
-        <p
-            class="caption"
-            class:is-live={!lineFinal}
-            class:is-dim={dimmed}
+    {:else if lines.length}
+        <div
+            class="caption-stack"
             style:--subtitle-size={`${fontSize}px`}
             style:--subtitle-weight={fontWeight}
             style:--subtitle-family={fontFamily}
             style:--subtitle-color={textColor}
             style:--subtitle-backing={backingColor}
         >
-            <span>{lineText}</span>
-        </p>
+            {#each lines as line, index (line.id)}
+                <p
+                    class="caption"
+                    class:is-live={!line.final}
+                    class:is-dim={line.dimmed}
+                    class:is-previous={index < lines.length - 1}
+                >
+                    <span>{line.text}</span>
+                </p>
+            {/each}
+        </div>
     {/if}
 </main>

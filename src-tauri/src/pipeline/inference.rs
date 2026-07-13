@@ -118,6 +118,7 @@ pub fn process(
             audio_ms.saturating_add(segments.first().map_or(0, |segment| segment.start_ms));
         let end_ms =
             audio_ms.saturating_add(segments.last().map_or(chunk_ms, |segment| segment.end_ms));
+        tracing::debug!(text = %final_text, start_ms, end_ms, "final caption");
         app.state::<AppState>().send_feed(AppFeed::Subtitle {
             start_ms,
             end_ms,

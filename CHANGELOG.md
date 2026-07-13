@@ -32,6 +32,10 @@ All notable changes to Kaigai are documented in this file.
 - Suppressed unstable rolling translation drafts in Stable caption mode so final
   utterance captions are favored over low-latency churn.
 - Improved model setup copy to describe Fast, Balanced and Accuracy tradeoffs.
+- The caption bar now keeps up to two lines on screen (newest at the bottom)
+  instead of flash-replacing a caption before it can be read.
+- Raised the default end-of-utterance silence cut from 250ms to 600ms so
+  breath pauses no longer split sentences across captions.
 
 ### Fixed
 

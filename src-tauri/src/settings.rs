@@ -90,7 +90,9 @@ impl Default for AppSettings {
             vad_sensitivity: "balanced".into(),
             minimum_chunk_ms: 1_000,
             maximum_chunk_ms: 6_000,
-            end_silence_ms: 250,
+            // Breath pauses mid-sentence run 200-400ms; cutting there splits
+            // sentences across captions. 600ms waits for a real gap.
+            end_silence_ms: 600,
             overlap_ms: 600,
             subtitle_offset_ms: 0,
             font_size_px: 36,
