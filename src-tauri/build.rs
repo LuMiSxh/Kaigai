@@ -79,13 +79,22 @@ const SILERO_VAD_URL: &str =
     "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin?download=true";
 const SILERO_VAD_SHA256: &str = "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987";
 const SILERO_VAD_FILE: &str = "ggml-silero-v6.2.0.bin";
+const DOWNLOAD_ATTEMPTS: u32 = 3;
 
 fn main() {
     let target = std::env::var("TARGET").expect("Cargo must provide TARGET");
     println!("cargo:rustc-env=KAIGAI_TARGET_TRIPLE={target}");
-    stage_sidecar("ffmpeg", &target, FFMPEG_SOURCES);
-    stage_sidecar("qjs", &target, QUICKJS_SOURCES);
-    stage_silero_vad(&target);
+    println!("cargo:rerun-if-env-changed=KAIGAI_SKIP_RESOURCE_DOWNLOADS");
+
+    let skip_downloads =
+        std::env::var("KAIGAI_SKIP_RESOURCE_DOWNLOADS").is_ok_and(|value| value == "1");
+    if skip_downloads {
+        println!("cargo:warning=skipping runtime resource downloads");
+    } else {
+        stage_sidecar("ffmpeg", &target, FFMPEG_SOURCES);
+        stage_sidecar("qjs", &target, QUICKJS_SOURCES);
+        stage_silero_vad(&target);
+    }
     tauri_build::build();
 }
 
@@ -115,8 +124,7 @@ fn stage_silero_vad(target: &str) {
 
 /// Downloads the pinned `tool_name` sidecar for `target` into
 /// `resources/bin/` if it isn't already staged there, and checks it against
-/// our own hash. Unpinned targets are skipped with a warning rather than
-/// failing, so `cargo check`/`clippy`/`test` never need network access.
+/// our own hash. Unpinned targets are skipped with a warning.
 fn stage_sidecar(tool_name: &str, target: &str, sources: &[SidecarSource]) {
     let Some(source) = sources.iter().find(|source| source.target == target) else {
         println!("cargo:warning=no pinned {tool_name} build for target {target}; skipping");
@@ -170,15 +178,32 @@ fn stage_sidecar(tool_name: &str, target: &str, sources: &[SidecarSource]) {
 const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
 
 fn download(url: &str) -> Vec<u8> {
+    for attempt in 1..=DOWNLOAD_ATTEMPTS {
+        match download_once(url) {
+            Ok(bytes) => return bytes,
+            Err(error) if attempt < DOWNLOAD_ATTEMPTS => {
+                println!(
+                    "cargo:warning={error}; retrying resource download ({}/{DOWNLOAD_ATTEMPTS})",
+                    attempt + 1
+                );
+                std::thread::sleep(std::time::Duration::from_secs(u64::from(attempt) * 2));
+            }
+            Err(error) => panic!("{error}"),
+        }
+    }
+    unreachable!("download loop must return or panic")
+}
+
+fn download_once(url: &str) -> Result<Vec<u8>, String> {
     let mut response = ureq::get(url)
         .call()
-        .unwrap_or_else(|error| panic!("failed to download resource from {url}: {error}"));
+        .map_err(|error| format!("failed to download resource from {url}: {error}"))?;
     response
         .body_mut()
         .with_config()
         .limit(MAX_DOWNLOAD_BYTES)
         .read_to_vec()
-        .unwrap_or_else(|error| panic!("failed to read resource download from {url}: {error}"))
+        .map_err(|error| format!("failed to read resource download from {url}: {error}"))
 }
 
 fn verify_sha256(bytes: &[u8], expected: &str, url: &str) {

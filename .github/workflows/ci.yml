@@ -12,6 +12,9 @@ on:
         type: string
         default: ""
 
+env:
+  KAIGAI_SKIP_RESOURCE_DOWNLOADS: "1"
+
 jobs:
   frontend:
     runs-on: ubuntu-latest
