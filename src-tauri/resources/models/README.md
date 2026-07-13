@@ -4,6 +4,6 @@
 into this directory; the `.bin`/`.pin` files are gitignored and never
 committed.
 
-This file exists so `resources/models/*` (the bundle resource glob in
-`tauri.conf.json`) always matches at least one file, including on CI's Linux
-runners where no model is staged and nothing else gets put here.
+This file keeps the `resources/models/*` bundle glob valid before
+`build.rs` has staged the model. It is packaged alongside the generated
+artifact and is not used by the runtime.

@@ -1,17 +1,24 @@
-# Dual-pass accuracy architecture
+# Accuracy mode: a dual-pass design
 
-Planned, not implemented yet.
+> [!IMPORTANT]
+> This is a design proposal. Kaigai does not implement dual-pass captions or a
+> user-facing Accuracy mode yet.
 
-Whisper isn't a native streaming model, and research backs that up — the
-strongest published pattern for improving live Whisper isn't "run two models
-at once," it's chunked decoding plus an emission policy like local agreement
-with adaptive latency. That's the direction Kaigai's `Stable` mode already
-takes, by favoring final utterances over rolling translation drafts.
+The tempting version of Accuracy mode is “run Medium and Large v3 at the same
+time, then show the better answer.” In practice, that can make both models
+slower, produce late corrections and cause distracting text replacement.
 
-Dual-pass still makes sense on top of that, as an optional Accuracy mode,
-once Stable mode is solid.
+The design below is more conservative. Stable captions remain the foundation.
+A second model sees final speech windows only, runs when capacity is available
+and may replace a caption only when its result passes a strict quality gate.
 
-## Source notes
+Whisper is not a native streaming model. The most useful published approach is
+chunked decoding with an emission policy such as local agreement and adaptive
+latency, not simply keeping two decoders busy. Kaigai's current `Stable` mode
+already moves in that direction by preferring final utterances over rolling
+translation drafts.
+
+## Research behind the decision
 
 - Whisper-Streaming adapts Whisper-like models for live transcription and
   translation through local agreement with self-adaptive latency, reporting
@@ -31,7 +38,7 @@ once Stable mode is solid.
 
 ## Decision
 
-Do not make dual-pass the default before measurement.
+Do not make dual-pass the default before measuring it.
 
 Use this order:
 
@@ -40,7 +47,7 @@ Use this order:
 3. Optional dual-pass Accuracy mode.
 4. Only then consider a faster backend such as CTranslate2 or dedicated ASR.
 
-## Target UX
+## What the user would see
 
 User-facing quality modes:
 
@@ -50,10 +57,10 @@ User-facing quality modes:
 | Balanced | no translation drafts by default | `medium` final                             | default        |
 | Accuracy | optional subtle draft            | `medium` fast final, `large-v3` correction | quality-first  |
 
-For Accuracy mode, the UI should not append a second line. It should replace or
-confirm the same caption.
+Accuracy mode must not append a competing second line. A correction replaces
+or confirms the same caption, using a subtle transition.
 
-## Runtime architecture
+## Proposed runtime
 
 ```text
 RollingWindow
@@ -75,7 +82,7 @@ CorrectionQualityGate
 SubtitleReplacement(id, revision=1, source=accuracy)
 ```
 
-## Backend types
+## Backend shape
 
 ```rust
 enum CaptionQualityMode {
@@ -99,9 +106,10 @@ struct CaptionCandidate {
 }
 ```
 
-## Event model
+## Caption identity and revisions
 
-Current subtitle events are append-like. Accuracy correction needs stable IDs:
+Current subtitle events are append-like. A correction needs a stable caption
+ID and a higher revision:
 
 ```rust
 struct SubtitleEvent {
@@ -115,14 +123,14 @@ struct SubtitleEvent {
 }
 ```
 
-The overlay keeps the active caption by `id`. If a higher revision arrives for
-the same `id`, the text is replaced with a subtle transition.
+The overlay keeps the active caption by `id`. If a higher revision arrives
+for that ID, the text is replaced in place.
 
-## Scheduling
+## Scheduling without hurting live captions
 
-Do not run fast and accuracy inference concurrently by default. On Apple Silicon,
-two Whisper contexts can contend for Metal/Core ML resources and increase tail
-latency.
+Do not run fast and accuracy inference concurrently by default. On Apple
+Silicon, two Whisper contexts can compete for Metal/Core ML resources and
+increase tail latency.
 
 Recommended scheduler:
 
@@ -139,9 +147,9 @@ Initial thresholds:
 - `accuracy_max_total_delay_ms = 5_000`;
 - `accuracy_min_speech_ms = 700`.
 
-## Correction acceptance
+## When a correction is allowed
 
-`large-v3` is not automatically trusted. Accept a correction only when:
+Large v3 is not automatically right. Accept a correction only when:
 
 - candidate is non-empty;
 - no hallucination/repetition/artifact gate trips;
@@ -161,9 +169,10 @@ accept if:
   AND length_ratio is between 0.5 and 2.2
 ```
 
-When uncertain, keep the fast caption.
+When in doubt, keep the first caption. A missed correction is less harmful
+than replacing readable text with a late hallucination.
 
-## Memory/runtime risks
+## Cost and failure modes
 
 Dual-pass may require two loaded Whisper contexts:
 
@@ -178,10 +187,10 @@ This can increase:
 - power usage;
 - perceived UI delay when corrections arrive late.
 
-For that reason, Accuracy mode should initially be hidden behind a dev/advanced
-setting and benchmarked before it becomes user-facing.
+For that reason, Accuracy mode should begin behind a developer or advanced
+setting and earn its place through measurements before becoming user-facing.
 
-## Benchmark plan
+## How the design earns a release
 
 Compare on the committed VTuber corpus:
 
@@ -198,7 +207,7 @@ Evaluate separately:
 - multi-speaker clips;
 - music/karaoke transition clips.
 
-Required to ship Accuracy mode:
+Required before shipping Accuracy mode:
 
 - no strong subtitle/outro artifacts;
 - correction tail latency usually under 5s;
@@ -206,7 +215,7 @@ Required to ship Accuracy mode:
 - no worse than `large-v3` direct on obvious samples;
 - no distracting correction flicker in the overlay.
 
-## Implementation steps
+## Implementation order
 
 1. Add caption IDs/revisions to backend feed and overlay.
 2. Add `CaptionQualityMode` separate from `captionMode`.
@@ -216,3 +225,7 @@ Required to ship Accuracy mode:
 6. Add correction acceptance gate.
 7. Add benchmark mode for dual-pass reports.
 8. Only expose user-facing Accuracy after benchmark evidence.
+
+[Back to the documentation index](../README.md) ·
+[Benchmark workflow](../benchmarks/README.md) ·
+[Current findings](../benchmarks/findings.md)
