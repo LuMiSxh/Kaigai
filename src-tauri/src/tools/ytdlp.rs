@@ -21,6 +21,7 @@ struct Release {
 struct Asset {
     name: String,
     browser_download_url: String,
+    size: u64,
 }
 
 /// The self-contained (no system Python required) release asset for our
@@ -61,14 +62,7 @@ pub async fn install(app: AppHandle, cancel: Arc<AtomicBool>) -> Result<ToolStat
         .map_err(|error| format!("failed to read yt-dlp checksums: {error}"))?;
     let expected_hash = checksum_for(&sums_text, &asset.name)?;
 
-    let size = reqwest::Client::new()
-        .head(&asset.browser_download_url)
-        .header("User-Agent", "Kaigai")
-        .send()
-        .await
-        .map_err(|error| format!("failed to check yt-dlp download size: {error}"))?
-        .content_length()
-        .ok_or("could not determine the yt-dlp download size")?;
+    let size = asset_size(asset)?;
 
     let directory = managed_dir(&app)?;
     fs::create_dir_all(&directory)
@@ -108,6 +102,16 @@ fn find_asset<'a>(release: &'a Release, name: &str) -> Result<&'a Asset, String>
         .ok_or_else(|| format!("yt-dlp release {} is missing {name}", release.tag_name))
 }
 
+fn asset_size(asset: &Asset) -> Result<u64, String> {
+    if asset.size == 0 {
+        return Err(format!(
+            "yt-dlp release asset {} reports a size of 0 bytes",
+            asset.name
+        ));
+    }
+    Ok(asset.size)
+}
+
 async fn fetch_release() -> Result<Release, String> {
     reqwest::Client::new()
         .get(format!(
@@ -136,4 +140,33 @@ fn checksum_for(sums_text: &str, asset_name: &str) -> Result<String, String> {
             (name == asset_name).then(|| hash.to_lowercase())
         })
         .ok_or_else(|| format!("no checksum found for {asset_name} in SHA2-256SUMS"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Asset, asset_size};
+
+    #[test]
+    fn uses_release_api_size_for_every_platform_asset() {
+        for name in ["yt-dlp_macos", "yt-dlp.exe", "yt-dlp_linux"] {
+            let asset = Asset {
+                name: name.into(),
+                browser_download_url: format!("https://example.com/{name}"),
+                size: 38_256_544,
+            };
+
+            assert_eq!(asset_size(&asset).unwrap(), 38_256_544);
+        }
+    }
+
+    #[test]
+    fn rejects_empty_release_assets() {
+        let asset = Asset {
+            name: "yt-dlp_macos".into(),
+            browser_download_url: "https://example.com/yt-dlp_macos".into(),
+            size: 0,
+        };
+
+        assert!(asset_size(&asset).is_err());
+    }
 }
