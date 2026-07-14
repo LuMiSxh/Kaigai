@@ -15,12 +15,14 @@ is not sent to a transcription service.
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 [![Rust](https://img.shields.io/badge/rust-2024-orange.svg)](https://www.rust-lang.org)
 
-[Why Kaigai?](#why-kaigai) • [Install](#install) • [Getting started](#getting-started) •
+[Overview](#overview) • [Features](#features) • [Installation](#installation) • [Quick Start](#quick-start) •
 [Models](#choosing-a-model) • [Development](#development)
 
 </div>
 
 ---
+
+## Overview
 
 Kaigai is made for the kind of livestream audio that neat demo clips tend to
 avoid: long chats, gaming, music, quick reactions, multiple voices and awkward
@@ -34,7 +36,7 @@ player.
 > received end-to-end testing yet. Expect platform-specific problems and please
 > report anything you find.
 
-## Why Kaigai?
+## Features
 
 ### The speech processing stays local
 
@@ -76,7 +78,7 @@ The runtime path is deliberately simple:
 stream URL → yt-dlp → ffmpeg → Silero VAD → Whisper → quality filter → overlay
 ```
 
-## Install
+## Installation
 
 Download the package for your platform from
 [GitHub Releases](https://github.com/LuMiSxh/Kaigai/releases).
@@ -96,7 +98,7 @@ walks you through downloading a Whisper model and preparing yt-dlp.
 > translation happen locally; the original livestream still comes from its
 > hosting site.
 
-## Getting started
+## Quick Start
 
 1. Open Kaigai and choose a speech model. **Medium** with Neural Engine
    acceleration is the recommended balance on Apple Silicon.
