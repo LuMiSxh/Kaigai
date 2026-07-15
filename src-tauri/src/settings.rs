@@ -190,12 +190,28 @@ fn rewrite_legacy_model_path(
     fs::rename(&temporary, settings_path).map_err(|error| error.to_string())
 }
 
-pub fn load(app: &AppHandle) -> AppSettings {
-    path(app)
-        .ok()
-        .and_then(|path| fs::read_to_string(path).ok())
-        .and_then(|contents| serde_json::from_str(&contents).ok())
-        .unwrap_or_default()
+pub fn load(app: &AppHandle) -> Result<AppSettings, String> {
+    let settings_path = path(app)?;
+    let contents = match fs::read_to_string(&settings_path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(AppSettings::default());
+        }
+        Err(error) => {
+            return Err(format!(
+                "failed to read settings from {}: {error}",
+                settings_path.display()
+            ));
+        }
+    };
+    parse(&contents)
+}
+
+fn parse(contents: &str) -> Result<AppSettings, String> {
+    let settings: AppSettings = serde_json::from_str(contents)
+        .map_err(|error| format!("failed to parse settings: {error}"))?;
+    validate(&settings)?;
+    Ok(settings)
 }
 
 pub fn save(app: &AppHandle, settings: &AppSettings) -> Result<(), String> {
@@ -319,6 +335,27 @@ mod tests {
     #[test]
     fn defaults_are_valid() {
         assert!(validate(&AppSettings::default()).is_ok());
+    }
+
+    #[test]
+    fn rejects_invalid_persisted_settings() {
+        let contents = serde_json::to_string(&AppSettings {
+            chunk_mode: "unknown".into(),
+            ..AppSettings::default()
+        })
+        .expect("serialize settings");
+
+        assert!(matches!(parse(&contents), Err(error) if error == "invalid chunk mode"));
+    }
+
+    #[test]
+    fn fills_missing_persisted_fields_from_defaults() {
+        let settings =
+            parse(r#"{"model":"small","onboarded":true}"#).expect("partial settings remain valid");
+
+        assert_eq!(settings.model, "small");
+        assert!(settings.onboarded);
+        assert_eq!(settings.chunk_mode, "adaptive");
     }
 
     #[test]

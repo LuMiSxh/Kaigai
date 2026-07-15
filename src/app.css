@@ -109,11 +109,11 @@ body {
     color: var(--color-anasthasia-accent-strong);
 }
 .status-pill[data-tone="live"] {
-    color: #1f9d57;
+    color: var(--color-lumi-success);
     border-color: color-mix(in srgb, #2fbf71 45%, var(--color-anasthasia-border));
 }
 .status-pill[data-tone="error"] {
-    color: #d23c40;
+    color: var(--color-lumi-danger);
     border-color: color-mix(in srgb, #e5484d 45%, var(--color-anasthasia-border));
 }
 
@@ -145,6 +145,18 @@ body {
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
+}
+
+.section-spaced {
+    margin-top: 0.75rem;
+}
+
+.panel-lead-spaced {
+    margin-bottom: 0.75rem;
+}
+
+.danger-note {
+    color: var(--color-lumi-danger);
 }
 
 .field {
@@ -452,5 +464,16 @@ body {
 
     .app-bar-tools {
         justify-content: space-between;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
     }
 }

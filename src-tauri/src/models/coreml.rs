@@ -79,6 +79,8 @@ pub async fn uninstall(directory: &Path, model_id: &str) -> Result<(), String> {
 
 pub async fn cleanup(directory: &Path, model_id: &str) {
     let _ = async_fs::remove_file(directory.join(archive_name(model_id))).await;
+    let staging = active_path(directory, model_id).with_extension("mlmodelc.extracting");
+    let _ = async_fs::remove_dir_all(staging).await;
 }
 
 pub fn extract_archive(archive: &Path, destination: &Path) -> Result<(), String> {

@@ -118,14 +118,13 @@
 
     <button
         type="button"
-        class="disclosure"
-        style:margin-top="0.75rem"
+        class="disclosure section-spaced"
         onclick={() => (showAdvancedTiming = !showAdvancedTiming)}
     >
         {showAdvancedTiming ? "Hide" : "Show"} advanced timing
     </button>
     {#if showAdvancedTiming}
-        <div style:margin-top="0.75rem">
+        <div class="section-spaced">
             <AdvancedTiming bind:settings />
         </div>
     {/if}

@@ -43,8 +43,10 @@ pub struct DeveloperLogEntry {
 pub fn init() -> Option<WorkerGuard> {
     #[cfg(debug_assertions)]
     {
-        MEMORY_LOGS.get_or_init(|| Arc::new(Mutex::new(VecDeque::with_capacity(MEMORY_LOG_LIMIT))));
-        init_stderr(true)
+        let memory = MEMORY_LOGS
+            .get_or_init(|| Arc::new(Mutex::new(VecDeque::with_capacity(MEMORY_LOG_LIMIT))))
+            .clone();
+        init_stderr(true, memory)
     }
 
     #[cfg(not(debug_assertions))]
@@ -76,11 +78,11 @@ pub fn init() -> Option<WorkerGuard> {
 
 /// Fallback subscriber used whenever a rolling file appender cannot be created.
 #[cfg(debug_assertions)]
-fn init_stderr(ansi: bool) -> Option<WorkerGuard> {
+fn init_stderr(ansi: bool, memory: Arc<Mutex<VecDeque<DeveloperLogEntry>>>) -> Option<WorkerGuard> {
     tracing_subscriber::registry()
         .with(filter())
         .with(fmt::layer().with_writer(io::stderr).with_ansi(ansi))
-        .with(memory_layer())
+        .with(memory_layer(memory))
         .init();
     None
 }
@@ -156,7 +158,9 @@ fn filter() -> EnvFilter {
 }
 
 #[cfg(debug_assertions)]
-fn memory_layer<S>() -> tracing_subscriber::fmt::Layer<
+fn memory_layer<S>(
+    memory: Arc<Mutex<VecDeque<DeveloperLogEntry>>>,
+) -> tracing_subscriber::fmt::Layer<
     S,
     tracing_subscriber::fmt::format::DefaultFields,
     tracing_subscriber::fmt::format::Format,
@@ -168,9 +172,7 @@ where
     fmt::layer()
         .with_ansi(false)
         .with_target(true)
-        .with_writer(MemoryMakeWriter {
-            memory: MEMORY_LOGS.get().expect("memory logs initialized").clone(),
-        })
+        .with_writer(MemoryMakeWriter { memory })
 }
 
 #[cfg(debug_assertions)]

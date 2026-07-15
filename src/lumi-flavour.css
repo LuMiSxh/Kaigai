@@ -10,6 +10,8 @@
     --color-anasthasia-on-accent: #21150a;
     --color-lumi-signal: #efa33d;
     --color-lumi-signal-highlight: #ffd17d;
+    --color-lumi-success: #1f9d57;
+    --color-lumi-danger: #d23c40;
     --background-image-anasthasia-accent-gradient: linear-gradient(
         135deg,
         #f8c76c 0%,

@@ -49,8 +49,12 @@ def download(url: str, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(f"{destination.suffix}.part")
     print(f"download {url}", flush=True)
-    with urllib.request.urlopen(url) as response, temporary.open("wb") as output:
-        shutil.copyfileobj(response, output)
+    try:
+        with urllib.request.urlopen(url) as response, temporary.open("wb") as output:
+            shutil.copyfileobj(response, output)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
     temporary.replace(destination)
 
 
@@ -175,7 +179,21 @@ def noisy_copy(source: Path, destination: Path, snr_db: float, seed: int) -> Non
             for sample, noise_value in zip(samples, noise, strict=True)
         ),
     )
-    write_pcm(destination, params, mixed)
+    temporary = destination.with_suffix(f"{destination.suffix}.part")
+    try:
+        write_pcm(temporary, params, mixed)
+        temporary.replace(destination)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def valid_pcm(path: Path) -> bool:
+    try:
+        read_pcm(path)
+        return True
+    except (FileNotFoundError, ValueError, wave.Error, EOFError):
+        return False
 
 
 def clip_metadata(
@@ -253,7 +271,7 @@ def main() -> None:
             level = f"{abs(snr_db):g}".replace(".", "p")
             suffix = f"snr-{'m' if snr_db < 0 else ''}{level}"
             noisy = audio_dir / f"{base_id}-{suffix}.wav"
-            if not noisy.is_file():
+            if not valid_pcm(noisy):
                 noisy_copy(clean, noisy, snr_db, seed=index * 10_000 + round(snr_db * 10))
             clips.append(
                 clip_metadata(

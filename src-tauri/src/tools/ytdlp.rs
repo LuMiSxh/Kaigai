@@ -57,6 +57,8 @@ pub async fn install(app: AppHandle, cancel: Arc<AtomicBool>) -> Result<ToolStat
         .send()
         .await
         .map_err(|error| format!("failed to fetch yt-dlp checksums: {error}"))?
+        .error_for_status()
+        .map_err(|error| format!("failed to fetch yt-dlp checksums: {error}"))?
         .text()
         .await
         .map_err(|error| format!("failed to read yt-dlp checksums: {error}"))?;

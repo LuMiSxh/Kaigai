@@ -76,11 +76,11 @@
 }
 
 .stat[data-tone="good"] .stat-value {
-    color: #1f9d57;
+    color: var(--color-lumi-success);
 }
 
 .stat[data-tone="warn"] .stat-value {
-    color: #d23c40;
+    color: var(--color-lumi-danger);
 }
 
 .developer-note {

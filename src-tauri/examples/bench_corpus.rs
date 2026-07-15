@@ -113,11 +113,21 @@ impl CliConfig {
                 "KAIGAI_BENCH_DECODE must be streaming, whole, or pipeline; got {decode_mode}"
             ));
         }
-        let window_ms = env_u64("KAIGAI_BENCH_WINDOW_MS", 6_000);
-        let overlap_ms = env_u64("KAIGAI_BENCH_OVERLAP_MS", 600);
+        let window_ms = env_u64("KAIGAI_BENCH_WINDOW_MS", 6_000)?;
+        let overlap_ms = env_u64("KAIGAI_BENCH_OVERLAP_MS", 600)?;
+        if window_ms == 0 {
+            return Err("KAIGAI_BENCH_WINDOW_MS must be positive".into());
+        }
+        if overlap_ms >= window_ms {
+            return Err("KAIGAI_BENCH_OVERLAP_MS must be smaller than the window".into());
+        }
+        let vad_sensitivity =
+            env::var("KAIGAI_BENCH_VAD_SENSITIVITY").unwrap_or_else(|_| "balanced".into());
+        if !matches!(vad_sensitivity.as_str(), "high" | "balanced" | "strict") {
+            return Err("KAIGAI_BENCH_VAD_SENSITIVITY must be high, balanced, or strict".into());
+        }
         let pipeline = PipelineConfig {
-            vad_sensitivity: env::var("KAIGAI_BENCH_VAD_SENSITIVITY")
-                .unwrap_or_else(|_| "balanced".into()),
+            vad_sensitivity,
             minimum_chunk_ms: env_u32("KAIGAI_BENCH_MINIMUM_CHUNK_MS", 1_000)?,
             maximum_chunk_ms: u32::try_from(window_ms)
                 .map_err(|_| "KAIGAI_BENCH_WINDOW_MS is too large")?,
@@ -307,11 +317,14 @@ fn configured_models() -> Result<Vec<ModelSpec>, String> {
     Ok(models)
 }
 
-fn env_u64(name: &str, fallback: u64) -> u64 {
-    env::var(name)
-        .ok()
-        .and_then(|value| value.parse().ok())
-        .unwrap_or(fallback)
+fn env_u64(name: &str, fallback: u64) -> Result<u64, String> {
+    match env::var(name) {
+        Ok(value) => value
+            .parse()
+            .map_err(|error| format!("{name} must be an unsigned integer: {error}")),
+        Err(env::VarError::NotPresent) => Ok(fallback),
+        Err(error) => Err(format!("failed to read {name}: {error}")),
+    }
 }
 
 fn env_u32(name: &str, fallback: u32) -> Result<u32, String> {

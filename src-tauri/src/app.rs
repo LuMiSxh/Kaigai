@@ -13,7 +13,10 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     if let Err(error) = settings::migrate_legacy_storage(app.handle()) {
         tracing::warn!(%error, "could not migrate legacy Kaigai storage");
     }
-    let current_settings = settings::load(app.handle());
+    let current_settings = settings::load(app.handle()).unwrap_or_else(|error| {
+        tracing::warn!(%error, "could not load settings; using defaults");
+        settings::AppSettings::default()
+    });
     *app.state::<AppState>()
         .settings
         .lock()

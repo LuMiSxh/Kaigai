@@ -190,6 +190,10 @@ def summarize(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def main() -> None:
     args = parse_args()
+    if args.max_new_tokens < 1:
+        raise ValueError("--max-new-tokens must be positive")
+    if args.context_windows < 0:
+        raise ValueError("--context-windows cannot be negative")
     clip_filter = {value.strip() for value in args.clip_filter.split(",") if value.strip()}
     source = json.loads(args.input.read_text())
     device = choose_device(args.device)

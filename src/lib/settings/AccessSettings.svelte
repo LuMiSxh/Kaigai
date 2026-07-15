@@ -8,7 +8,7 @@
 </script>
 
 <Panel title="Stream access">
-    <p class="panel-lead" style:margin-bottom="0.75rem">
+    <p class="panel-lead panel-lead-spaced">
         Configure this only for member-only or age-restricted streams.
     </p>
     <div class="settings-rows">

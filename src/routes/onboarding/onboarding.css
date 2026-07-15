@@ -76,7 +76,7 @@
 
 .onboarding-note {
     margin: 0;
-    color: #d23c40;
+    color: var(--color-lumi-danger);
     font-size: 0.82rem;
 }
 

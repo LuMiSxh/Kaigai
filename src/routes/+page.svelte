@@ -1,7 +1,7 @@
 <script lang="ts">
     import "./overlay.css";
     import { getCurrentWindow } from "@tauri-apps/api/window";
-    import { SvelteMap } from "svelte/reactivity";
+    import { SvelteMap, SvelteSet } from "svelte/reactivity";
     import { Channel } from "@tauri-apps/api/core";
     import { Alert, Button, Input } from "anasthasia";
     import { onMountAsync } from "$lib/lifecycle";
@@ -45,6 +45,7 @@
     let lines: CaptionLine[] = $state([]);
     let nextLineId = 0;
     const lineTimers = new SvelteMap<number, ReturnType<typeof setTimeout>>();
+    const scheduledCaptions = new SvelteSet<ReturnType<typeof setTimeout>>();
 
     let card: HTMLDivElement | undefined = $state();
 
@@ -74,9 +75,15 @@
         if (mode === "input") card?.querySelector("input")?.focus();
     });
 
-    onMountAsync(async () => {
+    onMountAsync(async (onCleanup) => {
         document.documentElement.classList.add("overlay-document");
         document.body.classList.add("overlay-document");
+        onCleanup(() => {
+            clearCaption();
+            clearTimeout(errorTimer);
+            document.documentElement.classList.remove("overlay-document");
+            document.body.classList.remove("overlay-document");
+        });
         void getCurrentWindow().setFocus();
         // Register one persistent channel for all backend → bar pushes (state,
         // captions, errors, settings). Channels deliver reliably to this window
@@ -91,12 +98,6 @@
             sessionState = snapshot.data.sessionState;
             streamUrl = snapshot.data.streamUrl ?? "";
         }
-        return [
-            () => {
-                clearCaption();
-                clearTimeout(errorTimer);
-            },
-        ];
     });
 
     // Dispatches the channel messages pushed by the backend.
@@ -151,8 +152,15 @@
 
     function schedule(apply: () => void) {
         const delay = Math.max(0, subtitleOffsetMs);
-        if (delay === 0) apply();
-        else setTimeout(apply, delay);
+        if (delay === 0) {
+            apply();
+            return;
+        }
+        const timer = setTimeout(() => {
+            scheduledCaptions.delete(timer);
+            apply();
+        }, delay);
+        scheduledCaptions.add(timer);
     }
 
     // A partial keeps updating the newest (non-final) line in place; a final
@@ -197,7 +205,9 @@
 
     function clearCaption() {
         for (const timer of lineTimers.values()) clearTimeout(timer);
+        for (const timer of scheduledCaptions) clearTimeout(timer);
         lineTimers.clear();
+        scheduledCaptions.clear();
         lines.splice(0, lines.length);
     }
 

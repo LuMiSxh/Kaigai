@@ -197,9 +197,23 @@ pub fn run(
     media_process.verify_exit()
 }
 
+fn read_pcm(
+    app: &AppHandle,
+    pcm: impl Read,
+    settings: &AppSettings,
+    signals: &Signals,
+    queue: &ChunkQueue,
+    speech_detector: SpeechDetector,
+) -> Result<(), String> {
+    let result = read_pcm_until_finished(app, pcm, settings, signals, queue, speech_detector);
+    signals.finished.store(true, Ordering::Relaxed);
+    queue.close();
+    result
+}
+
 // u128 -> u64 millis is safe up to ~584M years of capture.
 #[allow(clippy::cast_possible_truncation)]
-fn read_pcm(
+fn read_pcm_until_finished(
     app: &AppHandle,
     mut pcm: impl Read,
     settings: &AppSettings,
@@ -246,8 +260,6 @@ fn read_pcm(
         enqueue(app, queue, window);
     }
 
-    signals.finished.store(true, Ordering::Relaxed);
-    queue.close();
     read_error.map_or(Ok(()), Err)
 }
 

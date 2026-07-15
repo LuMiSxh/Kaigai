@@ -85,6 +85,10 @@ def percentile(values: list[float], fraction: float) -> float:
 
 def main() -> None:
     args = parse_args()
+    if args.max_total_delay_ms < 0:
+        raise ValueError("--max-total-delay-ms cannot be negative")
+    if args.min_length_ratio <= 0 or args.max_length_ratio < args.min_length_ratio:
+        raise ValueError("length ratios must be positive and ordered min <= max")
     baseline_report = json.loads(args.baseline.read_text())
     candidate_report = json.loads(args.candidate.read_text())
     baseline_runs = single_run_per_clip(baseline_report, "baseline")
@@ -178,6 +182,9 @@ def main() -> None:
                     "reason": reason,
                 }
             )
+
+    if not comparisons:
+        raise ValueError("reports contain no aligned windows")
 
     baseline_first = next(iter(baseline_runs.values()))
     candidate_first = next(iter(candidate_runs.values()))

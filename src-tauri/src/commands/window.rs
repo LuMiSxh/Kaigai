@@ -1,9 +1,11 @@
 use tauri::{AppHandle, Manager};
+use tauri_specta::Event;
 
 use super::WINDOW_LABELS;
 use crate::{
+    events::SettingsUpdatedEvent,
     settings::AppSettings,
-    state::{AppState, SessionStatus},
+    state::{AppFeed, AppState, SessionStatus},
     tracing_setup,
 };
 
@@ -51,14 +53,24 @@ pub fn get_recent_logs(after_id: Option<u64>) -> Vec<tracing_setup::DeveloperLog
 #[tauri::command]
 #[specta::specta]
 pub async fn reset_app(app: AppHandle) -> Result<(), String> {
-    use tokio::fs;
-
-    // Refuse while a session is running — the pipeline holds model state.
     {
         let state = app.state::<AppState>();
         let session = state.session.lock().map_err(|_| "session lock poisoned")?;
         if !matches!(session.status, SessionStatus::Idle | SessionStatus::Failed) {
             return Err("stop the active session before resetting".into());
+        }
+        if state
+            .model_download
+            .lock()
+            .map_err(|_| "model download lock poisoned")?
+            .is_some()
+            || state
+                .tool_download
+                .lock()
+                .map_err(|_| "tool download lock poisoned")?
+                .is_some()
+        {
+            return Err("wait for active downloads to finish before resetting".into());
         }
     }
 
@@ -66,19 +78,36 @@ pub async fn reset_app(app: AppHandle) -> Result<(), String> {
         .path()
         .app_data_dir()
         .map_err(|error| error.to_string())?;
-    let _ = fs::remove_dir_all(data_dir.join("models")).await;
-    let _ = fs::remove_dir_all(data_dir.join("tools")).await;
+    remove_dir_if_exists(&data_dir.join("models")).await?;
+    remove_dir_if_exists(&data_dir.join("tools")).await?;
 
     let fresh = AppSettings::default();
-    crate::settings::save(&app, &fresh).map_err(|error| error.clone())?;
-    *app.state::<AppState>()
+    crate::settings::save(&app, &fresh)?;
+    let state = app.state::<AppState>();
+    *state
         .settings
         .lock()
-        .map_err(|_| "settings lock poisoned")? = fresh;
+        .map_err(|_| "settings lock poisoned")? = fresh.clone();
+    SettingsUpdatedEvent {
+        settings: fresh.clone(),
+    }
+    .emit(&app)
+    .map_err(|error| error.to_string())?;
+    state.send_feed(AppFeed::Settings {
+        settings: Box::new(fresh),
+    });
 
     crate::app::show_and_focus(&app, "onboarding");
     if let Some(window) = app.get_webview_window("settings") {
         let _ = window.hide();
     }
     Ok(())
+}
+
+async fn remove_dir_if_exists(path: &std::path::Path) -> Result<(), String> {
+    match tokio::fs::remove_dir_all(path).await {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!("failed to remove {}: {error}", path.display())),
+    }
 }

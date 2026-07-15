@@ -114,8 +114,9 @@ pnpm format:check
 pnpm check
 pnpm lint
 pnpm test
+pnpm build
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
 pnpm test:rust
 pnpm bindings
 git diff --exit-code -- src/types/bindings.ts

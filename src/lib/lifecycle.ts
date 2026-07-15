@@ -1,26 +1,28 @@
 import { onMount } from "svelte";
 
-type Disposer = (() => void) | undefined | null;
+type Disposer = () => void;
+type RegisterDisposer = (disposer: Disposer) => void;
+type AsyncMountErrorHandler = (error: unknown) => void;
 
 /**
- * Run async setup on mount and dispose whatever it returns on unmount.
- *
- * `setup` performs the initial fetches/subscriptions and returns the cleanup
- * callbacks to run on teardown — typically the unlisten functions from
- * `events.*.listen`, plus any other teardown closures. Disposers are also run
- * if the component unmounts before setup resolves, avoiding leaked listeners.
+ * Run async setup on mount and dispose registered resources on unmount.
  */
-export function onMountAsync(setup: () => Promise<Disposer[]>): void {
+export function onMountAsync(
+    setup: (onCleanup: RegisterDisposer) => Promise<void>,
+    onError: AsyncMountErrorHandler = (error) => console.error("Async mount setup failed", error),
+): void {
     onMount(() => {
         let disposers: Disposer[] = [];
         let unmounted = false;
-        void (async () => {
-            disposers = await setup();
-            if (unmounted) disposers.forEach((dispose) => dispose?.());
-        })();
+        const onCleanup: RegisterDisposer = (disposer) => {
+            if (unmounted) disposer();
+            else disposers.push(disposer);
+        };
+        void setup(onCleanup).catch(onError);
         return () => {
             unmounted = true;
-            disposers.forEach((dispose) => dispose?.());
+            disposers.forEach((dispose) => dispose());
+            disposers = [];
         };
     });
 }

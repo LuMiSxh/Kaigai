@@ -8,6 +8,7 @@
     import EngineSettings from "$lib/settings/EngineSettings.svelte";
     import ToolSettings from "$lib/settings/ToolSettings.svelte";
     import AppHeader from "$lib/AppHeader.svelte";
+    import { whileBusy } from "$lib/async";
     import { onMountAsync } from "$lib/lifecycle";
     import {
         commands,
@@ -50,19 +51,23 @@
         selectedModel = settings.model;
     }
 
-    onMountAsync(async () => {
+    onMountAsync(async (onCleanup) => {
         const [snapshot, catalog] = await Promise.all([
             commands.getAppSnapshot(),
             commands.getModelCatalog(),
         ]);
         if (snapshot.status === "error") {
             toast.danger(snapshot.error);
-            return [];
+            return;
         }
         syncSettings(snapshot.data.settings);
-        if (catalog.status === "ok") models = catalog.data;
+        if (catalog.status === "ok") {
+            models = catalog.data;
+        } else {
+            toast.danger(catalog.error, { title: "Could not load models" });
+        }
         toolStatuses = await commands.getToolStatuses();
-        return [
+        onCleanup(
             await events.modelDownloadEvent.listen((event) => {
                 if (event.payload.modelId === "yt-dlp") {
                     ytDlpDownload = event.payload;
@@ -83,19 +88,22 @@
                 if (event.payload.error)
                     toast.danger(event.payload.error, { title: "Model download" });
             }),
+        );
+        onCleanup(
             await events.settingsUpdatedEvent.listen(async (event) => {
                 syncSettings(event.payload.settings);
-                const refreshed = await commands.getModelCatalog();
-                if (refreshed.status === "ok") models = refreshed.data;
+                await refreshModels();
             }),
-        ];
+        );
     });
 
     async function saveSettings() {
         if (!settings) return;
-        saving = true;
-        const result = await commands.updateSettings(settings);
-        saving = false;
+        const currentSettings = settings;
+        const result = await whileBusy(
+            (busy) => (saving = busy),
+            () => commands.updateSettings(currentSettings),
+        );
         if (result.status === "error") {
             toast.danger(result.error, { title: "Could not save" });
             return;
@@ -110,9 +118,10 @@
     }
 
     async function checkForYtDlpUpdate() {
-        checkingYtDlpUpdate = true;
-        const result = await commands.checkYtDlpUpdate();
-        checkingYtDlpUpdate = false;
+        const result = await whileBusy(
+            (busy) => (checkingYtDlpUpdate = busy),
+            commands.checkYtDlpUpdate,
+        );
         if (result.status === "error") {
             toast.danger(result.error, { title: "yt-dlp" });
             return;
@@ -122,10 +131,8 @@
     }
 
     async function installYtDlpUpdate() {
-        installingYtDlp = true;
         ytDlpDownload = null;
-        const result = await commands.installYtDlp();
-        installingYtDlp = false;
+        const result = await whileBusy((busy) => (installingYtDlp = busy), commands.installYtDlp);
         if (result.status === "error") {
             toast.danger(result.error, { title: "yt-dlp" });
             return;
@@ -140,9 +147,7 @@
     }
 
     async function resetApp() {
-        resetting = true;
-        const result = await commands.resetApp();
-        resetting = false;
+        const result = await whileBusy((busy) => (resetting = busy), commands.resetApp);
         if (result.status === "error") {
             toast.danger(result.error, { title: "Reset failed" });
             confirmingReset = false;
@@ -172,31 +177,31 @@
 
     async function installSelectedModel() {
         if (!selectedModelInfo) return;
-        installingModel = true;
         modelDownload = null;
-        const result = await commands.installModel(selectedModel);
-        installingModel = false;
+        const result = await whileBusy(
+            (busy) => (installingModel = busy),
+            () => commands.installModel(selectedModel),
+        );
         if (result.status === "error") {
             toast.danger(result.error, { title: "Model download" });
             return;
         }
-        const catalog = await commands.getModelCatalog();
-        if (catalog.status === "ok") models = catalog.data;
+        await refreshModels();
         toast.success(`${result.data.label} is ready — it will be used for the next session.`);
     }
 
     async function setCoreMlEnabled(enabled: boolean) {
         if (!selectedModelInfo) return;
-        installingModel = true;
         modelDownload = null;
-        const result = await commands.setCoreMlEnabled(selectedModelInfo.id, enabled);
-        installingModel = false;
+        const result = await whileBusy(
+            (busy) => (installingModel = busy),
+            () => commands.setCoreMlEnabled(selectedModelInfo.id, enabled),
+        );
         if (result.status === "error") {
             toast.danger(result.error, { title: "Core ML" });
             return;
         }
-        const catalog = await commands.getModelCatalog();
-        if (catalog.status === "ok") models = catalog.data;
+        await refreshModels();
         toast.success(
             enabled
                 ? `Neural Engine enabled for ${result.data.label}.`
@@ -206,17 +211,17 @@
 
     async function uninstallSelectedModel() {
         if (!selectedModelInfo) return;
-        removingModel = true;
         const wasActive = selectedModelInfo.active;
-        const result = await commands.uninstallModel(selectedModelInfo.id);
-        removingModel = false;
+        const result = await whileBusy(
+            (busy) => (removingModel = busy),
+            () => commands.uninstallModel(selectedModelInfo.id),
+        );
         confirmingModelRemoval = null;
         if (result.status === "error") {
             toast.danger(result.error, { title: "Could not remove model" });
             return;
         }
-        const catalog = await commands.getModelCatalog();
-        if (catalog.status === "ok") models = catalog.data;
+        await refreshModels();
         toast.success(
             wasActive
                 ? `${selectedModelInfo.label} was removed. Choose another model before starting subtitles.`
@@ -227,6 +232,15 @@
     async function cancelModelDownload() {
         const result = await commands.cancelModelDownload();
         if (result.status === "error") toast.danger(result.error);
+    }
+
+    async function refreshModels() {
+        const result = await commands.getModelCatalog();
+        if (result.status === "ok") {
+            models = result.data;
+        } else {
+            toast.danger(result.error, { title: "Could not refresh models" });
+        }
     }
 </script>
 
@@ -302,15 +316,11 @@
 
                     <Panel title="Danger zone">
                         {#if confirmingReset}
-                            <p class="panel-note" style="color: var(--color-danger, #d23c40)">
+                            <p class="panel-note danger-note">
                                 This will delete all downloaded models and managed yt-dlp, reset all
                                 settings, and restart the setup tour. This cannot be undone.
                             </p>
-                            <div
-                                class="action-row"
-                                style:margin-top="0.75rem"
-                                bind:this={resetActions}
-                            >
+                            <div class="action-row section-spaced" bind:this={resetActions}>
                                 <Button
                                     variant="danger"
                                     size="sm"

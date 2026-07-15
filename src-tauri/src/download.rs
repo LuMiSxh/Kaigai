@@ -15,14 +15,6 @@ use tokio::{
 
 use crate::events::ModelDownloadEvent;
 
-// Download speed/ETA are progress-display estimates; precision loss only
-// matters at magnitudes (petabytes, multi-century durations) this code never
-// approaches.
-#[allow(
-    clippy::cast_precision_loss,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss
-)]
 pub async fn verified(
     app: &AppHandle,
     event_id: &str,
@@ -32,19 +24,50 @@ pub async fn verified(
     expected_hash: &str,
     cancel: &AtomicBool,
 ) -> Result<u64, String> {
-    let started = Instant::now();
     let _ = fs::remove_file(temporary).await;
+    let result = download_and_verify(
+        app,
+        event_id,
+        url,
+        temporary,
+        expected_size,
+        expected_hash,
+        cancel,
+    )
+    .await;
+    if result.is_err() {
+        let _ = fs::remove_file(temporary).await;
+    }
+    result
+}
+
+// Progress rates and ETAs are display estimates; sub-byte precision is irrelevant.
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
+async fn download_and_verify(
+    app: &AppHandle,
+    event_id: &str,
+    url: &str,
+    temporary: &Path,
+    expected_size: u64,
+    expected_hash: &str,
+    cancel: &AtomicBool,
+) -> Result<u64, String> {
+    let started = Instant::now();
     let response = reqwest::Client::new()
         .get(url)
         .send()
         .await
-        .map_err(|error| format!("model download failed: {error}"))?
+        .map_err(|error| format!("download request failed: {error}"))?
         .error_for_status()
-        .map_err(|error| format!("model download failed: {error}"))?;
+        .map_err(|error| format!("download request failed: {error}"))?;
     let mut stream = response.bytes_stream();
     let mut file = File::create(temporary)
         .await
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| format!("failed to create {}: {error}", temporary.display()))?;
     let mut hasher = Sha256::new();
     let mut downloaded = 0_u64;
     let mut last_emit = Instant::now()
@@ -53,15 +76,13 @@ pub async fn verified(
 
     while let Some(chunk) = stream.next().await {
         if cancel.load(Ordering::Relaxed) {
-            drop(file);
-            let _ = fs::remove_file(temporary).await;
             ModelDownloadEvent::cancelled(event_id).emit(app).ok();
-            return Err("model download cancelled".into());
+            return Err("download cancelled".into());
         }
         let chunk = chunk.map_err(|error| format!("model download interrupted: {error}"))?;
         file.write_all(&chunk)
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| format!("failed to write {}: {error}", temporary.display()))?;
         hasher.update(&chunk);
         downloaded += chunk.len() as u64;
 
@@ -75,14 +96,15 @@ pub async fn verified(
             last_emit = Instant::now();
         }
     }
-    file.flush().await.map_err(|error| error.to_string())?;
+    file.flush()
+        .await
+        .map_err(|error| format!("failed to flush {}: {error}", temporary.display()))?;
     drop(file);
     ModelDownloadEvent::verifying(event_id, downloaded, expected_size)
         .emit(app)
         .ok();
     let actual_hash = format!("{:x}", hasher.finalize());
     if actual_hash != expected_hash || downloaded != expected_size {
-        let _ = fs::remove_file(temporary).await;
         return Err(format!(
             "download verification failed for {url}: expected {expected_size} bytes and {expected_hash}, got {downloaded} bytes and {actual_hash}"
         ));

@@ -98,6 +98,14 @@ def choose_device() -> tuple[str, torch.dtype]:
 
 def main() -> None:
     args = parse_args()
+    if args.max_steps < 1:
+        raise ValueError("--max-steps must be positive")
+    if args.gradient_accumulation < 1:
+        raise ValueError("--gradient-accumulation must be positive")
+    if args.save_steps < 1:
+        raise ValueError("--save-steps must be positive")
+    if args.learning_rate <= 0:
+        raise ValueError("--learning-rate must be positive")
     device, dtype = choose_device()
     processor = WhisperProcessor.from_pretrained(
         args.base_model, language="Japanese", task="translate"

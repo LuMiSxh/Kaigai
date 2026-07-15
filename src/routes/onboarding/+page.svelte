@@ -2,6 +2,7 @@
     import "./onboarding.css";
     import { Button, Input, Select, Toggle, toast } from "anasthasia";
     import AdvancedTiming from "$lib/AdvancedTiming.svelte";
+    import { whileBusy } from "$lib/async";
     import InfoTip from "$lib/InfoTip.svelte";
     import { onMountAsync } from "$lib/lifecycle";
     import ModelSetup from "$lib/setup/ModelSetup.svelte";
@@ -48,7 +49,7 @@
     let ytDlpReady = $derived.by(() =>
         settings?.ytDlpSource === "system" ? systemYtDlpFound : managedYtDlpInstalled,
     );
-    onMountAsync(async () => {
+    onMountAsync(async (onCleanup) => {
         const [snapshot, catalog, toolStatuses, hasSystemYtDlp] = await Promise.all([
             commands.getAppSnapshot(),
             commands.getModelCatalog(),
@@ -58,13 +59,19 @@
         if (snapshot.status === "ok") {
             settings = snapshot.data.settings as CompleteAppSettings;
             selectedModel = settings.model;
+        } else {
+            toast.danger(snapshot.error, { title: "Could not load setup" });
         }
-        if (catalog.status === "ok") models = catalog.data;
+        if (catalog.status === "ok") {
+            models = catalog.data;
+        } else {
+            toast.danger(catalog.error, { title: "Could not load models" });
+        }
         systemYtDlpFound = hasSystemYtDlp;
         managedYtDlpInstalled = toolStatuses.some(
             (tool) => tool.tool === "yt-dlp" && tool.source === "managed",
         );
-        return [
+        onCleanup(
             await events.modelDownloadEvent.listen((event) => {
                 if (event.payload.modelId === "yt-dlp") {
                     ytDlpDownload = event.payload;
@@ -80,17 +87,17 @@
                 if (event.payload.error)
                     toast.danger(event.payload.error, { title: "Model download" });
             }),
+        );
+        onCleanup(
             await events.settingsUpdatedEvent.listen((event) => {
                 settings = event.payload.settings as CompleteAppSettings;
             }),
-        ];
+        );
     });
 
     async function installManagedYtDlp() {
-        installingYtDlp = true;
         ytDlpDownload = null;
-        const result = await commands.installYtDlp();
-        installingYtDlp = false;
+        const result = await whileBusy((busy) => (installingYtDlp = busy), commands.installYtDlp);
         if (result.status === "error") {
             toast.danger(result.error, { title: "yt-dlp" });
             return;
@@ -105,16 +112,16 @@
     }
 
     async function installSelectedModel() {
-        installingModel = true;
         modelDownload = null;
-        const result = await commands.installModel(selectedModel);
-        installingModel = false;
+        const result = await whileBusy(
+            (busy) => (installingModel = busy),
+            () => commands.installModel(selectedModel),
+        );
         if (result.status === "error") {
             toast.danger(result.error, { title: "Model download" });
             return;
         }
-        const catalog = await commands.getModelCatalog();
-        if (catalog.status === "ok") models = catalog.data;
+        await refreshModels();
         toast.success(`${result.data.label} is ready.`);
     }
 
@@ -125,16 +132,25 @@
 
     async function setCoreMlEnabled(enabled: boolean) {
         if (!selectedModelInfo) return;
-        installingModel = true;
         modelDownload = null;
-        const result = await commands.setCoreMlEnabled(selectedModelInfo.id, enabled);
-        installingModel = false;
+        const result = await whileBusy(
+            (busy) => (installingModel = busy),
+            () => commands.setCoreMlEnabled(selectedModelInfo.id, enabled),
+        );
         if (result.status === "error") {
             toast.danger(result.error, { title: "Core ML" });
             return;
         }
-        const catalog = await commands.getModelCatalog();
-        if (catalog.status === "ok") models = catalog.data;
+        await refreshModels();
+    }
+
+    async function refreshModels() {
+        const result = await commands.getModelCatalog();
+        if (result.status === "ok") {
+            models = result.data;
+        } else {
+            toast.danger(result.error, { title: "Could not refresh models" });
+        }
     }
 
     function next() {

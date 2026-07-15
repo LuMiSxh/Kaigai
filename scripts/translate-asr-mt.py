@@ -263,6 +263,8 @@ def summarize(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def main() -> None:
     args = parse_args()
+    if args.batch_size < 1:
+        raise ValueError("--batch-size must be positive")
     report = json.loads(args.input.read_text())
     clip_filter = {
         value.strip() for value in args.clip_filter.split(",") if value.strip()

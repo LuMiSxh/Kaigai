@@ -52,12 +52,13 @@
         }
     }
 
-    onMountAsync(async () => {
+    onMountAsync(async (onCleanup) => {
         if (!DEV_BUILD) {
             await commands.hideWindow("developer");
-            return [];
+            return;
         }
         const interval = window.setInterval(() => void refreshLogs(), 500);
+        onCleanup(() => window.clearInterval(interval));
 
         const snapshotResult = await commands.getAppSnapshot();
         if (snapshotResult.status === "ok") {
@@ -65,18 +66,21 @@
             sessionState = snapshotResult.data.sessionState;
         }
         await refreshLogs();
-        return [
-            () => window.clearInterval(interval),
+        onCleanup(
             await events.metricsEvent.listen((event) => {
                 metrics = event.payload;
             }),
+        );
+        onCleanup(
             await events.sessionStateEvent.listen((event) => {
                 sessionState = event.payload.state;
             }),
+        );
+        onCleanup(
             await events.settingsUpdatedEvent.listen((event) => {
                 if (snapshot) snapshot = { ...snapshot, settings: event.payload.settings };
             }),
-        ];
+        );
     });
 
     function clearVisibleLogs() {

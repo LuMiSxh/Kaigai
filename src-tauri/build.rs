@@ -118,7 +118,7 @@ fn stage_silero_vad(target: &str) {
     verify_sha256(&bytes, SILERO_VAD_SHA256, SILERO_VAD_URL);
     let temporary = destination.with_extension("part");
     fs::write(&temporary, bytes).expect("failed to write Silero VAD model");
-    fs::rename(&temporary, &destination).expect("failed to install Silero VAD model");
+    install_staged_file(&temporary, &destination, "Silero VAD model");
     fs::write(marker, SILERO_VAD_SHA256).expect("failed to write Silero VAD pin marker");
 }
 
@@ -169,8 +169,17 @@ fn stage_sidecar(tool_name: &str, target: &str, sources: &[SidecarSource]) {
         fs::set_permissions(&temporary, fs::Permissions::from_mode(0o755))
             .expect("failed to mark sidecar as executable");
     }
-    fs::rename(&temporary, &destination).expect("failed to install staged sidecar binary");
+    install_staged_file(&temporary, &destination, "sidecar binary");
     fs::write(&marker, source.sha256).expect("failed to write sidecar pin marker");
+}
+
+fn install_staged_file(temporary: &Path, destination: &Path, label: &str) {
+    if destination.exists() {
+        fs::remove_file(destination)
+            .unwrap_or_else(|error| panic!("failed to replace existing {label}: {error}"));
+    }
+    fs::rename(temporary, destination)
+        .unwrap_or_else(|error| panic!("failed to install {label}: {error}"));
 }
 
 /// ureq caps `read_to_vec()` at 10MB by default; ffmpeg downloads run up to
