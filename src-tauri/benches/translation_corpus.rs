@@ -1,6 +1,6 @@
 use std::{
     collections::BTreeMap,
-    env, fs,
+    env,
     path::{Path, PathBuf},
 };
 
@@ -34,8 +34,19 @@ fn bench_translation_corpus(criterion: &mut Criterion) {
     let model = env::var("KAIGAI_BENCH_MODEL").unwrap_or_else(|_| "small".into());
     let backend = env::var("KAIGAI_BENCH_BACKEND").unwrap_or_else(|_| "coreml".into());
     let task = env::var("KAIGAI_BENCH_TASK").unwrap_or_else(|_| "translate".into());
+    let language = env::var("KAIGAI_BENCH_LANGUAGE").unwrap_or_else(|_| "ja".into());
 
-    let model_path = model_path(&model_dir, &model, &backend).expect("resolve model path");
+    let model_path = env::var("KAIGAI_BENCH_MODEL_PATH").map_or_else(
+        |_| model_path(&model_dir, &model, &backend).expect("resolve model path"),
+        |path| {
+            let source = PathBuf::from(path);
+            if backend == "metal" {
+                benchmark::isolated_model_path(&source, &model).expect("isolate custom model")
+            } else {
+                source
+            }
+        },
+    );
     if !model_path.is_file() {
         eprintln!("skip corpus benchmark: missing {}", model_path.display());
         return;
@@ -56,7 +67,10 @@ fn bench_translation_corpus(criterion: &mut Criterion) {
         let samples = audio.get(&clip.id).expect("loaded clip audio");
         group.bench_function(&clip.id, |bencher| {
             bencher.iter_batched(
-                || BenchmarkEngine::load(&model_path, &task).expect("load model"),
+                || {
+                    BenchmarkEngine::load_with_language(&model_path, &task, &language)
+                        .expect("load model")
+                },
                 |mut engine| {
                     engine
                         .run_clip(&model, &backend, &task, clip, samples)
@@ -72,19 +86,7 @@ fn bench_translation_corpus(criterion: &mut Criterion) {
 fn model_path(model_dir: &Path, model: &str, backend: &str) -> Result<PathBuf, String> {
     let source = model_dir.join(format!("ggml-{model}.bin"));
     if backend == "metal" {
-        let directory = env::temp_dir().join("kaigai-bench-no-coreml").join(model);
-        fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
-        let destination = directory.join(format!("ggml-{model}.bin"));
-        if destination.exists() {
-            fs::remove_file(&destination).map_err(|error| error.to_string())?;
-        }
-        #[cfg(unix)]
-        std::os::unix::fs::symlink(source, &destination).map_err(|error| error.to_string())?;
-
-        #[cfg(not(unix))]
-        fs::copy(source, &destination).map_err(|error| error.to_string())?;
-
-        Ok(destination)
+        benchmark::isolated_model_path(&source, model)
     } else {
         Ok(source)
     }

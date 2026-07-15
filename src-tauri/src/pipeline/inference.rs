@@ -161,7 +161,7 @@ fn emit_metrics(app: &AppHandle, event: &MetricsEvent) -> Result<(), String> {
 
 /// Drop adjacent duplicate segments — Whisper repetition-loops on long
 /// windows re-emit the same phrase across several segments.
-fn join_unique_segments(segments: &[WhisperSegment]) -> String {
+pub(crate) fn join_unique_segments(segments: &[WhisperSegment]) -> String {
     let mut parts: Vec<&str> = Vec::new();
     for segment in segments {
         let part = segment.text.trim();

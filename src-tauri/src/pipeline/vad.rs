@@ -24,7 +24,7 @@ impl SpeechDetector {
         Self::from_path(&model, sensitivity_threshold(&settings.vad_sensitivity))
     }
 
-    pub(super) fn from_path(model: &Path, threshold: f32) -> Result<Self, String> {
+    pub(crate) fn from_path(model: &Path, threshold: f32) -> Result<Self, String> {
         let model = model
             .to_str()
             .ok_or("Silero VAD model path is not valid UTF-8")?;
@@ -62,7 +62,7 @@ impl SpeechDetector {
     }
 }
 
-fn sensitivity_threshold(sensitivity: &str) -> f32 {
+pub(crate) fn sensitivity_threshold(sensitivity: &str) -> f32 {
     match sensitivity {
         "high" => 0.35,
         "strict" => 0.65,

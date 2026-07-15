@@ -1,5 +1,7 @@
 .DS_Store
 node_modules
+__pycache__/
+*.pyc
 /build
 /.svelte-kit
 /package
@@ -14,5 +16,8 @@ vite.config.ts.timestamp-*
 /benchmarks/corpus/cache/
 /benchmarks/corpus/generated/
 /benchmarks/results/
+/benchmarks/reference/fleurs-ja-en/
+/benchmarks/reference/generated/
+/training/
 # CocoIndex Code (ccc)
 /.cocoindex_code/

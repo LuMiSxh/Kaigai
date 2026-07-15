@@ -2,6 +2,23 @@
 
 All notable changes to Kaigai are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Full-pipeline benchmark mode covering Silero VAD, adaptive finalization,
+  stabilization and caption quality decisions.
+- Automated FLEURS Japanese-to-English reference preparation, clean/noisy
+  chrF2++ scoring and a local decoder-LoRA training probe.
+
+### Changed
+
+- Stable translation now skips rolling Whisper calls that can never be shown.
+  On the measured 45-second Watame clip this reduced inference calls from 21 to
+  9 and inference time from 24.35s to 9.30s with identical final caption text.
+- Benchmark-only Rust code and WAV dependencies are excluded from production
+  builds and shared report/path logic is no longer duplicated by entry points.
+
 ## [1.0.0] - 2026-07-13
 
 ### Added

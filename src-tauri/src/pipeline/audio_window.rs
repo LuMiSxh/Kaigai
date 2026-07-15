@@ -31,6 +31,7 @@ pub struct RollingWindow {
     step_samples: usize,
     speech_start_samples: usize,
     fixed: bool,
+    emit_rolling: bool,
     buffer: VecDeque<f32>,
     buffer_start_sample: usize,
     total_samples: usize,
@@ -56,6 +57,7 @@ impl RollingWindow {
             step_samples: ms_to_samples(PARTIAL_STEP_MS),
             speech_start_samples: ms_to_samples(SPEECH_START_MS),
             fixed: settings.chunk_mode == "fixed",
+            emit_rolling: settings.task != "translate" || settings.caption_mode != "stable",
             buffer: VecDeque::with_capacity(ms_to_samples(settings.maximum_chunk_ms)),
             buffer_start_sample: 0,
             total_samples: 0,
@@ -88,6 +90,9 @@ impl RollingWindow {
             // stable hypotheses regress.
             let final_window = reached_maximum || ended_on_silence;
             if !final_window && !self.ready() {
+                continue;
+            }
+            if !final_window && !self.emit_rolling {
                 continue;
             }
             let due = self.last_emit_sample == 0
@@ -236,6 +241,7 @@ mod tests {
         let settings = AppSettings {
             maximum_chunk_ms: 6_000,
             end_silence_ms: 200,
+            caption_mode: "live".into(),
             ..AppSettings::default()
         };
         let mut window = RollingWindow::new(&settings);
@@ -245,6 +251,22 @@ mod tests {
         assert!(!rolling[0].final_window);
 
         let final_windows = window.push(&vec![0.0; ms_to_samples(200)]);
+        assert_eq!(final_windows.len(), 1);
+        assert!(final_windows[0].final_window);
+    }
+
+    #[test]
+    fn stable_translation_emits_only_final_windows() {
+        let settings = AppSettings {
+            maximum_chunk_ms: 6_000,
+            end_silence_ms: 200,
+            ..AppSettings::default()
+        };
+        let mut window = RollingWindow::new(&settings);
+
+        assert!(window.push(&vec![0.5; ms_to_samples(1_100)]).is_empty());
+        let final_windows = window.push(&vec![0.0; ms_to_samples(200)]);
+
         assert_eq!(final_windows.len(), 1);
         assert!(final_windows[0].final_window);
     }
@@ -303,6 +325,7 @@ mod tests {
             maximum_chunk_ms: 6_000,
             end_silence_ms: 200,
             overlap_ms: 600,
+            caption_mode: "live".into(),
             ..AppSettings::default()
         };
         let mut window = RollingWindow::new(&settings);

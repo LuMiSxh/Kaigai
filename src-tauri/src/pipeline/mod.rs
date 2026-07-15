@@ -27,13 +27,13 @@ use crate::{
     state::{AppFeed, AppState, SessionStatus},
 };
 
-mod audio_window;
-mod inference;
+pub(crate) mod audio_window;
+pub(crate) mod inference;
 mod media;
-mod quality;
+pub(crate) mod quality;
 mod queue;
-mod stabilizer;
-mod vad;
+pub(crate) mod stabilizer;
+pub(crate) mod vad;
 pub(crate) mod whisper;
 
 /// PCM bytes read per syscall (~100 ms of 16 kHz mono `s16le`).

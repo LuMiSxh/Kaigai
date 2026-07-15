@@ -1,227 +1,76 @@
-# Benchmark findings: July 2026
+# Benchmark findings
 
-The short version is reassuring: **Medium with Core ML remains the best
-default**. Small is the sensible fast option, Large v3 is the accuracy-first
-choice, and none of the two-stage ASR-to-MT experiments is ready to replace
-direct Whisper translation.
+Last updated 15 July 2026 on an Apple Silicon Mac.
 
-These numbers were measured on 8 July 2026 with the local Japanese VTuber
-corpus: 15 clips, 1,610 seconds of audio, seven long clips and seven Tsunomaki
-Watame clips. Unless a section says otherwise, decoding simulates the live app
-with 6,000 ms windows and 600 ms overlap.
+## Current recommendation
 
-> [!NOTE]
-> This is a dated measurement, not a permanent truth. Re-run the
-> [benchmark workflow](README.md) after changing models, inference, windowing,
-> VAD or caption filtering.
+| Use            | Model    | Backend |
+| -------------- | -------- | ------- |
+| Default        | Medium   | Core ML |
+| Faster         | Small    | Core ML |
+| Accuracy first | Large v3 | Core ML |
+| ASR reference  | Turbo v3 | Core ML |
 
-## Recommendation
+Tiny and Base are fast but produce too many subtitle-like artifacts. Turbo v3
+cannot translate to English by itself.
 
-- **Balanced:** `medium` with Core ML.
-- **Fast:** `small` with Core ML.
-- **Accuracy first:** `large-v3` with Core ML.
-- Tiny and Base are quick, but they produce too many subtitle-like artifacts
-  on this corpus to recommend for everyday VTuber streams.
-- Large v3 Turbo remains useful as a transcription-only speed reference. It
-  cannot translate to English by itself.
-- Direct Whisper translation stays in the app. The measured ASR-to-MT
-  candidates are either worse at translation or too slow.
+On the 15-clip, 1,610-second VTuber set, Core ML beat Metal for every stock
+model:
 
-## Speed: Core ML wins consistently
+| Model          | Core ML RTF | Metal RTF |
+| -------------- | ----------: | --------: |
+| Tiny           |       0.015 |     0.017 |
+| Base           |       0.025 |     0.029 |
+| Small          |       0.045 |     0.063 |
+| Medium         |       0.117 |     0.161 |
+| Large v3       |       0.244 |     0.302 |
+| Turbo v3 (ASR) |       0.110 |     0.215 |
 
-Lower realtime factor is faster. All rows are the same 15-clip corpus with
-the current filter pipeline.
+## Pipeline changes
 
-| Model            | Backend | Task       | Avg RTF | Watame avg RTF | Long avg RTF |
-| ---------------- | ------- | ---------- | ------: | -------------: | -----------: |
-| `tiny`           | Core ML | translate  |   0.015 |          0.012 |        0.014 |
-| `tiny`           | Metal   | translate  |   0.017 |          0.015 |        0.015 |
-| `base`           | Core ML | translate  |   0.025 |          0.020 |        0.020 |
-| `base`           | Metal   | translate  |   0.029 |          0.024 |        0.025 |
-| `small`          | Core ML | translate  |   0.045 |          0.040 |        0.040 |
-| `small`          | Metal   | translate  |   0.063 |          0.060 |        0.057 |
-| `medium`         | Core ML | translate  |   0.117 |          0.107 |        0.111 |
-| `medium`         | Metal   | translate  |   0.161 |          0.150 |        0.153 |
-| `large-v3`       | Core ML | translate  |   0.244 |          0.223 |        0.240 |
-| `large-v3`       | Metal   | translate  |   0.302 |          0.291 |        0.295 |
-| `large-v3-turbo` | Core ML | transcribe |   0.110 |          0.103 |        0.105 |
-| `large-v3-turbo` | Metal   | transcribe |   0.215 |          0.206 |        0.208 |
+Stable translation used to decode rolling drafts and discard them. Skipping
+those calls reduced one 45-second Watame clip from 21 Whisper calls to 9 and
+from 24.35s to 9.30s of inference. The final text was unchanged. Live mode and
+same-language transcription still use rolling hypotheses.
 
-Core ML wins for every model in this run, so it remains the macOS default.
-Tiny and Base look tempting in a timing table, but their caption quality is the
-reason they are not the product recommendation.
+The reference baseline contains 24 FLEURS sentences in three variants:
 
-## Two-stage ASR-to-MT is not ready
+| Audio | chrF2++ | Avg RTF |
+| ----- | ------: | ------: |
+| Clean |  36.139 |   0.211 |
+| 15 dB |  36.287 |   0.224 |
+| 5 dB  |  35.433 |   0.198 |
 
-Direct Whisper translation stays the product default. An ASR-to-MT candidate
-can replace it only after beating `medium` direct translation on _both_
-quality and live latency on this corpus—not one or the other.
+No final clip was empty and no strong artifact or repetition was found. This is
+a regression set, not a general translation leaderboard.
 
-What we tried:
+## Experiments we are not shipping
 
-- ASR: `large-v3-turbo` transcription with Core ML, windowed the same way as
-  the direct Whisper baseline.
-- MT candidate 1: `Helsinki-NLP/opus-mt-ja-en` through local Transformers on
-  MPS.
-- MT candidate 2: `Qwen/Qwen2.5-0.5B-Instruct` through local Transformers on
-  MPS, sampled on one Watame clip because latency already ruled it out.
+| Experiment                | Result                                                     |
+| ------------------------- | ---------------------------------------------------------- |
+| Kotoba Bilingual Q5       | Real-time, but added meta text and inaccurate rewrites.    |
+| Turbo ASR + OPUS-MT       | Fast enough, but amplified ASR errors.                     |
+| Turbo ASR + NLLB 600M     | Fast enough, worse output, non-commercial checkpoint.      |
+| Turbo ASR + Qwen 0.5B     | Too slow and too creative.                                 |
+| 12-second Whisper windows | p95 rose from 1.53s to 5.85s; more loops and outro text.   |
+| Medium + Large dual pass  | No reliable way to know when the correction is more right. |
 
-| Pipeline                                    | Clips | Avg RTF | Watame avg RTF | MT avg / clip | Decision                                   |
-| ------------------------------------------- | ----: | ------: | -------------: | ------------: | ------------------------------------------ |
-| `large-v3-turbo` ASR + OPUS-MT, cleaned ASR |    15 |   0.123 |          0.114 |         0.96s | Not default: fast enough, but worse output |
-| `large-v3-turbo` ASR + Qwen 0.5B            |     1 |   0.584 |          0.584 |        21.56s | Not default: too slow and too creative     |
+The proposed correction gate accepted 278 of 308 Kotoba changes and 47 of 61
+NLLB changes, including bad ones. Length, repetition and artifact checks are
+safety filters; they cannot judge translation accuracy. Accuracy mode stays
+deferred until a candidate wins on references and real stream clips.
 
-OPUS-MT is fast, especially once ASR repetition is cleaned up, but it
-amplifies ASR mistakes: repeated source fragments turn into English
-gibberish, names and items get mistranslated, and odd phrases like
-"hospital" show up out of nowhere from noisy ASR. Qwen reads more casually,
-but it adds its own style and emoji, and it's far slower than even
-`large-v3` direct translation on the 45-second Watame sample we tried it on.
+## Next model experiment
 
-The decision is to keep Medium + Core ML as the shipping default and Stable as
-the default caption mode. ASR-to-MT remains a repeatable experiment until a
-candidate wins on both caption quality and live latency.
+Try a decoder-only LoRA on Whisper Medium. Keep the six-second maximum,
+independent decoding and current VAD pipeline. Compare it with stock Medium on:
 
-### What a replacement would have to prove
+- clean and noisy FLEURS scores;
+- empty, repeated and artifact outputs;
+- Watame, gaming, music and multi-speaker clips;
+- median and p95 window latency.
 
-All of these, not just some:
+If it wins, publish full GGML, quantized GGML and any Core ML bundle separately,
+with hashes and data attribution. Keep it optional until it has seen wider use.
 
-- avg RTF <= `medium` direct translate on this corpus;
-- Watame avg RTF <= `medium` direct translate;
-- no strong outro/subtitle artifacts on Watame clips;
-- visibly better translation than `medium` on at least Watame superchat,
-  Watame gaming, and one multi-speaker collab slice;
-- no invented streamer intent, emoji, credits, subscription calls, or
-  explanations;
-- works offline once models are installed;
-- model licenses and download sizes are fine for distribution;
-- the UI can explain the engine without exposing benchmark-only internals.
-
-Until then, the plan is to keep the app runtime on direct Whisper and keep
-the ASR-to-MT lane benchmarkable in-tree: maintain the corpus/result JSON
-workflow, keep `large-v3-turbo` as the ASR reference, keep the OPUS-MT/Qwen
-scripts as reproducible benchmark tools, and only add a user-facing engine
-selector once a candidate actually beats the default. That keeps a worse
-engine from becoming product surface area while still letting us measure
-progress.
-
-### Candidates still worth measuring
-
-**NLLB distilled 600M** (medium priority) — probably better than OPUS-MT on
-semantic translation and still more deterministic than a general LLM. Main
-risk is size and latency. Benchmark the same way: `large-v3-turbo` ASR
-report, full 15-clip corpus, compared against `medium` and `large-v3`.
-
-**CTranslate2 / `ct2rs`** (high priority, if NMT quality holds up) — the
-most plausible path from a Python benchmark to a native Rust runtime.
-Supports MarianMT/NLLB-class models with Rust bindings already available.
-Costs an extra native dependency and a model conversion pipeline.
-
-**SenseVoice or ReazonSpeech ASR** (high priority for the ASR side, but only
-once MT quality is solved) — the strongest case for a Japanese-optimized,
-non-autoregressive ASR to replace Whisper. Right now `large-v3-turbo` is
-already fast enough that MT quality is the bigger blocker, not ASR speed.
-Costs a new runtime backend, model packaging, and licensing/platform work.
-
-**Local LLM translation** (low priority for default, medium for
-experiments) — context-aware translation is appealing, but Qwen 0.5B via
-Transformers/MPS was too slow and too creative. A quantized llama.cpp/MLX
-setup might do better, but it has to prove latency and a deterministic style
-before it's allowed anywhere near the app.
-
-### If a candidate eventually wins
-
-Don't expose model-stack internals up front. If a future candidate wins,
-surface it as:
-
-- Engine: `Live translation` / `Experimental ASR + translator`;
-- Quality mode: `Fast`, `Balanced`, `Accuracy`;
-- optional advanced details for the selected ASR and MT models.
-
-Until then, the model recommendation stays simple: Balanced means Medium +
-Neural Engine, Fast means Small + Neural Engine and Accuracy means Large v3 +
-Neural Engine.
-
-## Filtering removed the worst false captions
-
-The Watame superchat-reading failure mode is real: short pauses and
-non-speech windows make Whisper emit stock subtitle/YouTube phrases like
-"thank you for watching", "please subscribe", "see you next time", and
-translator credits.
-
-What's in place to catch it:
-
-- `no_speech_probability` thresholding before output reaches the stabilizer;
-- non-speech token suppression in whisper.cpp decode params;
-- stripping embedded subtitle artifacts out of otherwise-useful segments;
-- rejecting dominant repetition loops;
-- verifying ambiguous short translations such as "bye" and "thank you" by
-  running a source-language decode for that window before keeping them;
-- collapsing long source/decoder repetition runs — repeated Japanese
-  syllables, repeated phrase units, repeated identical words;
-- suppressing translated rolling partials in Stable mode so final
-  utterances win over unstable low-latency drafts;
-- rejecting very low-speech translation windows and weak short low-speech
-  translations.
-
-On Watame clips across `small`, `medium`, and `large-v3`, strong
-subtitle-artifact hits dropped from 7 before this filter pass to 0 after.
-What's left is mostly ambiguous short phrases like "I'm sorry" — those can be
-genuine Japanese livestream speech, so we're not blanket-deleting them
-without better evidence.
-
-## Several speakers remain best effort
-
-The pipeline handles multi-speaker clips at about the same speed, but it has
-no idea who's speaking. So a future multi-speaker feature isn't just a
-translation setting — it probably needs its own experimental toggle for
-diarization or speaker separation, plus UI copy that sets expectations
-honestly. For 1.0, multi-speaker stays best-effort translation with no
-speaker labels promised.
-
-## Longer-term translation work
-
-The two-step ASR-to-MT direction is worth pursuing, but as an isolated
-experimental engine first:
-
-1. Japanese ASR: produce Japanese text quickly and reliably.
-2. Machine translation or a small local LLM: translate with stream context.
-3. Compare against the current one-step Whisper translation on the same
-   corpus.
-
-This isn't a small refactor — it touches model storage, runtime backends,
-settings, latency accounting, error reporting, and possibly licensing.
-
-Candidate ASR models: SenseVoice-Small (non-autoregressive, Japanese
-support, acoustic event tags, very low latency per its docs), ReazonSpeech
-k2/NeMo (Japanese-focused, trained on a 35,000-hour corpus, k2-v2 ships in
-ONNX), and `large-v3-turbo` (already in our stack, fast, but can't
-translate).
-
-Candidate MT models: OPUS-MT ja-en (our measured speed baseline, not good
-enough as the default translator), NLLB distilled 600M (broader multilingual
-baseline, probably heavier than OPUS-MT), and compact local LLMs in the Qwen
-2.5/3 class (useful for context and casual stream English, but the measured
-0.5B Transformers path was too slow and too loose stylistically for live
-default use).
-
-Rejected or low priority for now: Kotoba Whisper (transcription-only, so it
-doesn't fit Kaigai's translation-first path), and any full end-to-end speech
-translation replacement that cannot run natively, locally and faster than the
-current Core ML Whisper path.
-
-## References for future model research
-
-- SenseVoice: https://github.com/FunAudioLLM/SenseVoice
-- ReazonSpeech project: https://research.reazon.jp/projects/ReazonSpeech/
-- ReazonSpeech v2.1/k2-v2: https://research.reazon.jp/blog/2024-08-01-ReazonSpeech.html
-- NVIDIA Canary docs: https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/models.html
-- NVIDIA Riva Canary model card with Japanese listed: https://catalog.ngc.nvidia.com/orgs/nvidia/teams/riva/models/canary-riva-1b
-- Meta SeamlessM4T: https://github.com/facebookresearch/seamless_communication
-- OPUS-MT ja-en: https://huggingface.co/Helsinki-NLP/opus-mt-ja-en
-- NLLB distilled 600M: https://huggingface.co/facebook/nllb-200-distilled-600M
-- Qwen 2.5 overview: https://qwenlm.github.io/blog/qwen2.5/
-- Whisper non-speech hallucination study: https://arxiv.org/abs/2501.11378
-
-[Back to the benchmark guide](README.md) ·
-[Back to the documentation index](../README.md)
+[Run the benchmarks](README.md) · [Documentation index](../README.md)

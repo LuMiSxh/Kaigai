@@ -7,6 +7,9 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 default-run = "kaigai"
 
+[features]
+benchmark = ["dep:hound"]
+
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 
@@ -44,7 +47,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 dirs = "6"
 futures-util = "0.3"
-hound = "3.5"
+hound = { version = "3.5", optional = true }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json"] }
 sha2 = "0.10"
 tokio = { version = "1", features = ["fs", "io-util"] }
@@ -62,3 +65,8 @@ criterion = "0.7"
 [[bench]]
 name = "translation_corpus"
 harness = false
+required-features = ["benchmark"]
+
+[[example]]
+name = "bench_corpus"
+required-features = ["benchmark"]

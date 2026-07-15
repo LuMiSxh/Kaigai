@@ -1,73 +1,22 @@
-# Benchmarking Kaigai
+# Benchmarking
 
-This suite answers a practical question: which local model produces useful
-captions quickly enough for a real Japanese livestream?
+Kaigai has two local benchmark sets:
 
-It is not a generic Whisper leaderboard. The corpus deliberately leans toward
-Kaigai's difficult day-to-day material—VTuber chat, gaming, music, short
-pauses and overlapping speakers—and the runner decodes the audio in the same
-small windows used by the app.
+- VTuber clips for realistic latency, noise and hallucination checks;
+- FLEURS Japanese audio with English references for chrF2++ scoring.
 
-The latest interpretation of the numbers lives in
-[the benchmark findings](findings.md).
+Generated audio and reports are ignored by Git. The VTuber manifest only stores
+public URLs and timestamps. FLEURS is pinned to a dataset revision and licensed
+CC-BY-4.0.
 
-## What is committed
-
-Only public video metadata, timestamps and hand-written clip labels are kept in
-Git:
-
-```text
-benchmarks/corpus/jp-vtuber-corpus.json
-```
-
-Audio is downloaded and cut locally. The WAV files, caches, generated manifest
-and all result reports are ignored. That keeps the repository small and avoids
-redistributing stream audio.
-
-## What the corpus tries to catch
-
-The clips are chosen to expose failure modes that disappear in clean,
-single-sentence samples:
-
-- superchat and chat utterances separated by one-to-three-second pauses, where
-  Whisper may invent “bye”, “thank you” or “see you next time”;
-- long, Watame-heavy segments because Tsunomaki Watame is Kaigai's primary
-  real-world target;
-- sparse, balanced, dense and music-heavy speech over longer sessions;
-- fast gaming reactions over background audio;
-- collabs with several voices and a risk of overlapping speech;
-- karaoke or music-to-speech transitions;
-- mixed Japanese and English.
-
-Every clip carries `lengthProfile`, `speechDensity`, `speakerProfile`,
-`speakerCount` and `overlapRisk` metadata. Do not look only at the overall
-average: those slices are how regressions are found.
-
-## Before running it
-
-Set up the project using the [development guide](../development.md). Corpus
-preparation also needs working `yt-dlp` and `ffmpeg` commands. They can be
-on `PATH` or supplied through the environment variables shown below.
-
-The full model matrix takes significant disk space. Install the models from
-Kaigai first, or point the runner at a directory that already contains them.
-
-## 1. Prepare the audio
+## Prepare data
 
 ```sh
+# VTuber clips. Requires yt-dlp and ffmpeg.
 pnpm bench:prepare
-```
 
-The script downloads only the requested timestamp ranges with yt-dlp and turns
-them into mono 16 kHz PCM WAV files. It does not cache complete livestream
-archives.
-
-Generated files:
-
-```text
-benchmarks/corpus/audio/*.wav
-benchmarks/corpus/cache/*
-benchmarks/corpus/generated/manifest.json
+# 24 FLEURS sentences, clean plus 15 dB and 5 dB noise variants.
+pnpm bench:prepare:reference
 ```
 
 Useful overrides:
@@ -75,148 +24,132 @@ Useful overrides:
 ```sh
 KAIGAI_BENCH_REBUILD=1 pnpm bench:prepare
 KAIGAI_BENCH_CORPUS=/path/to/corpus.json pnpm bench:prepare
-YT_DLP=/path/to/yt-dlp FFMPEG=/path/to/ffmpeg pnpm bench:prepare
+
+python3 scripts/prepare-fleurs-corpus.py \
+  --split dev --limit 100 --snr-db 20,10,5 \
+  --output benchmarks/reference/generated/fleurs-dev.json
 ```
 
-## 2. Run the model matrix
+## Run models
 
 ```sh
 pnpm bench:models
 ```
 
-The default report is written to:
-
-```text
-benchmarks/results/model-matrix.json
-```
-
-For every clip and model, the report records:
-
-- model load and inference time;
-- realtime factor (RTF);
-- decoded text;
-- output removed by the quality filters;
-- backend and task;
-- the corpus metadata needed for grouped comparisons.
-
-### Streaming versus whole-clip decoding
-
-The default, `KAIGAI_BENCH_DECODE=streaming`, simulates the live pipeline
-with 6,000 ms windows and 600 ms overlap. Use this when making product or model
-recommendations.
-
-`KAIGAI_BENCH_DECODE=whole` is a diagnostic. A full-clip Whisper call is not
-how Kaigai runs and is much more vulnerable to repetition loops, so its result
-must not replace the streaming measurement.
-
-### Backends on macOS
-
-Core ML uses the installed model directory. The Metal-only run points at
-temporary directories under `$TMPDIR/kaigai-bench-no-coreml` that omit the
-`.mlmodelc` bundles. The runner does not modify the installed models.
-
-The normal matrix is:
-
-- Tiny
-- Base
-- Small
-- Medium
-- Large v3
-- Large v3 Turbo as a transcription-only speed reference
-
-Kotoba Whisper is intentionally absent because it cannot perform the English
-translation task Kaigai is built around.
-
-Useful overrides:
+The runner finds models in Kaigai's data directory. Limit a run with environment
+variables:
 
 ```sh
-KAIGAI_MODEL_DIR="$HOME/Library/Application Support/com.lumisxh.kaigai/models" pnpm bench:models
-KAIGAI_BENCH_OUTPUT=benchmarks/results/custom.json pnpm bench:models
-KAIGAI_BENCH_MODELS=small,medium KAIGAI_BENCH_TASKS=translate KAIGAI_BENCH_BACKENDS=coreml pnpm bench:models
-KAIGAI_BENCH_WINDOW_MS=6000 KAIGAI_BENCH_OVERLAP_MS=600 pnpm bench:models
-```
-
-## Focused Criterion runs
-
-Use Criterion when comparing a narrow inference or pipeline change:
-
-```sh
-pnpm bench:criterion
-```
-
-To select one model and backend:
-
-```sh
-KAIGAI_BENCH_MODEL=small KAIGAI_BENCH_BACKEND=coreml KAIGAI_BENCH_TASK=translate pnpm bench:criterion
-KAIGAI_BENCH_MODEL=small KAIGAI_BENCH_BACKEND=metal KAIGAI_BENCH_TASK=translate pnpm bench:criterion
-```
-
-Criterion is good for timing a code path. The model matrix is better for
-recommendations because it also preserves output text and corpus slices.
-
-## Experimental ASR-to-MT runs
-
-These experiments split source transcription from English translation. They
-are benchmark tools, not app features.
-
-First produce a windowed Large v3 Turbo transcription report:
-
-```sh
-KAIGAI_BENCH_MODELS=large-v3-turbo \
-KAIGAI_BENCH_TASKS=transcribe \
+KAIGAI_BENCH_MODELS=small,medium \
+KAIGAI_BENCH_TASKS=translate \
 KAIGAI_BENCH_BACKENDS=coreml \
-KAIGAI_BENCH_OUTPUT=benchmarks/results/asr-turbo-coreml-transcribe-windows.json \
+KAIGAI_BENCH_OUTPUT=benchmarks/results/medium.json \
 pnpm bench:models
 ```
 
-Then feed it to OPUS-MT:
+Decode modes:
+
+| Mode        | Use                                                        |
+| ----------- | ---------------------------------------------------------- |
+| `streaming` | Fixed 6s windows; stresses decoder hallucinations.          |
+| `pipeline`  | Runs VAD, adaptive windows, stabilization and quality gates. |
+| `whole`     | Diagnostic only; not how the app runs.                       |
+
+Use `pipeline` before making a product recommendation:
 
 ```sh
-pnpm bench:asr-mt:opus -- \
-  --input benchmarks/results/asr-turbo-coreml-transcribe-windows.json \
-  --output benchmarks/results/asr-mt-turbo-opus-transformers.json \
-  --model Helsinki-NLP/opus-mt-ja-en \
-  --batch-size 8 \
-  --device auto
+KAIGAI_BENCH_DECODE=pipeline \
+KAIGAI_BENCH_MODELS=medium \
+KAIGAI_BENCH_TASKS=translate \
+KAIGAI_BENCH_BACKENDS=coreml \
+pnpm bench:models
 ```
 
-Or run the local Qwen experiment on a selected clip:
+The pipeline report includes finalization reasons, speech time, decoded text,
+quality decisions and emitted text. Window size, overlap, VAD sensitivity and
+silence timing can be overridden with the corresponding `KAIGAI_BENCH_*`
+variables in `src-tauri/examples/bench_corpus.rs`.
+
+## Custom models
 
 ```sh
-pnpm bench:asr-mt:qwen -- \
-  --input benchmarks/results/asr-turbo-coreml-transcribe-windows.json \
-  --output benchmarks/results/asr-mt-turbo-qwen05-oneclip.json \
-  --model Qwen/Qwen2.5-0.5B-Instruct \
-  --device auto \
-  --clip-filter watame-superchat-short-pauses-001
+KAIGAI_BENCH_MODEL_PATH=/path/to/ggml-model.bin \
+KAIGAI_BENCH_MODEL_ID=my-model \
+KAIGAI_BENCH_MODELS=my-model \
+KAIGAI_BENCH_TASKS=translate \
+KAIGAI_BENCH_BACKENDS=metal \
+KAIGAI_BENCH_LANGUAGE=ja \
+pnpm bench:models
 ```
 
-Both scripts use `uv` inline Python dependencies so they stay outside the
-production application.
+Set `KAIGAI_BENCH_MODEL_SUPPORTS_TRANSLATE=false` for ASR-only models. Kotoba
+Bilingual expects `KAIGAI_BENCH_LANGUAGE=en`.
 
-## Reading a report
+For repeated timing of one model, use `pnpm bench:criterion`. It accepts the
+same custom model path and language variables.
 
-Always compare at least:
+## Score and compare
 
-- all translation clips;
-- Watame clips;
-- long clips;
-- sparse and dense speech;
-- single- and multi-speaker clips;
-- superchat pause clips;
-- music background and music-to-talk transitions;
-- Large v3 Turbo transcription as a speed reference.
+Run Medium on the reference set:
 
-A recommendation should answer five things plainly:
+```sh
+KAIGAI_BENCH_CORPUS=benchmarks/reference/generated/fleurs-ja-en.json \
+KAIGAI_BENCH_DECODE=pipeline \
+KAIGAI_BENCH_MODELS=medium \
+KAIGAI_BENCH_TASKS=translate \
+KAIGAI_BENCH_BACKENDS=coreml \
+KAIGAI_BENCH_OUTPUT=benchmarks/results/fleurs-medium.json \
+pnpm bench:models
 
-1. What is the fastest model that is still useful?
-2. What should a new user get by default?
-3. What is the accuracy-first option?
-4. Is Core ML worth enabling for that model?
-5. Did any slice get worse even if the average improved?
+pnpm bench:score \
+  --input benchmarks/results/fleurs-medium.json \
+  --output benchmarks/results/fleurs-medium-scores.json
+```
 
-Do not promote a model on speed alone. Read its caption text, check the
-hallucination categories and explain any recommendation change in
-[the findings](findings.md).
+Compare aligned model reports with:
 
-[Back to the documentation index](../README.md)
+```sh
+pnpm bench:compare \
+  --baseline benchmarks/results/medium.json \
+  --candidate benchmarks/results/candidate.json \
+  --output benchmarks/results/comparison.json
+```
+
+chrF2++ catches semantic regressions on clean read speech. The VTuber set still
+needs a quick text review for names, jokes, music and overlapping speakers.
+
+## Fine-tuning probe
+
+Prepare separate FLEURS splits:
+
+```sh
+python3 scripts/prepare-fleurs-corpus.py \
+  --split train --limit 1000 --snr-db 20,10,5 \
+  --output benchmarks/reference/generated/fleurs-train.json
+
+python3 scripts/prepare-fleurs-corpus.py \
+  --split dev --limit 100 --snr-db 15,5 \
+  --output benchmarks/reference/generated/fleurs-dev.json
+```
+
+Then run the decoder-only Medium LoRA probe:
+
+```sh
+pnpm train:whisper \
+  --train-manifest benchmarks/reference/generated/fleurs-train.json \
+  --eval-manifest benchmarks/reference/generated/fleurs-dev.json \
+  --max-steps 100 \
+  --output training/whisper-medium-ja-en-lora
+```
+
+The script uses MPS, batch size one, gradient accumulation and a frozen encoder.
+It will use most of a 16 GB Mac while training. Use `--merge-output` to create a
+checkpoint that whisper.cpp can convert; Kaigai cannot load a LoRA adapter
+directly.
+
+A candidate only moves forward if it improves clean and noisy reference scores,
+does not add empty or hallucinated captions, stays real-time, and looks better
+on the VTuber clips. Ship it as an optional model first.
+
+The ASR-to-MT and local-LLM scripts remain under `scripts/` for experiments.
+They are not app features. See [current findings](findings.md) for why.

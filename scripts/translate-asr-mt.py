@@ -6,12 +6,7 @@
 #   "sacremoses>=0.1",
 # ]
 # ///
-"""Translate a windowed ASR benchmark report with a local MT model.
-
-This is intentionally a benchmark/experiment tool, not the production runtime.
-It lets Kaigai compare the current one-step Whisper translate path against a
-decoupled ASR -> MT path on the exact same corpus and windowing.
-"""
+"""Translate a windowed ASR report with a local MT model."""
 
 from __future__ import annotations
 
@@ -29,6 +24,7 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 
 DEFAULT_MODEL = "Helsinki-NLP/opus-mt-ja-en"
+NLLB_CODES = {"ja": "jpn_Jpan", "en": "eng_Latn"}
 
 
 @dataclass
@@ -42,7 +38,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument(
+        "--model-family",
+        choices=["auto", "marian", "nllb", "m2m100"],
+        default="auto",
+    )
+    parser.add_argument("--source-lang", choices=["ja", "en"], default="ja")
+    parser.add_argument("--target-lang", choices=["ja", "en"], default="en")
     parser.add_argument("--batch-size", default=8, type=int)
+    parser.add_argument(
+        "--clip-filter",
+        default="",
+        help="Comma-separated clip ids for focused experiments. Empty means all clips.",
+    )
     parser.add_argument(
         "--device",
         choices=["auto", "cpu", "mps"],
@@ -62,14 +70,46 @@ def choose_device(requested: str) -> torch.device:
     return torch.device("cpu")
 
 
-def load_translator(model_name: str, device: torch.device) -> tuple[Any, Any, int]:
+def model_family(model_name: str, requested: str) -> str:
+    if requested != "auto":
+        return requested
+    lowered = model_name.casefold()
+    if "nllb" in lowered:
+        return "nllb"
+    if "m2m100" in lowered:
+        return "m2m100"
+    return "marian"
+
+
+def load_translator(
+    model_name: str,
+    device: torch.device,
+    family: str,
+    source_lang: str,
+    target_lang: str,
+) -> tuple[Any, Any, dict[str, int], int]:
     started = time.perf_counter()
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    tokenizer_kwargs = (
+        {"src_lang": NLLB_CODES[source_lang]} if family == "nllb" else {}
+    )
+    tokenizer = AutoTokenizer.from_pretrained(model_name, **tokenizer_kwargs)
+    model = AutoModelForSeq2SeqLM.from_pretrained(
+        model_name,
+        torch_dtype=torch.float16 if device.type == "mps" else torch.float32,
+    )
     model.to(device)
     model.eval()
+    generation_kwargs: dict[str, int] = {}
+    if family == "nllb":
+        target_token = tokenizer.convert_tokens_to_ids(NLLB_CODES[target_lang])
+        if target_token == tokenizer.unk_token_id:
+            raise ValueError(f"NLLB tokenizer does not support {target_lang}")
+        generation_kwargs["forced_bos_token_id"] = target_token
+    elif family == "m2m100":
+        tokenizer.src_lang = source_lang
+        generation_kwargs["forced_bos_token_id"] = tokenizer.get_lang_id(target_lang)
     load_ms = int((time.perf_counter() - started) * 1000)
-    return tokenizer, model, load_ms
+    return tokenizer, model, generation_kwargs, load_ms
 
 
 def clean_asr_text(text: str) -> str:
@@ -122,6 +162,7 @@ def translate_texts(
     device: torch.device,
     texts: list[str],
     batch_size: int,
+    generation_kwargs: dict[str, int],
 ) -> dict[str, Translation]:
     translations: dict[str, Translation] = {}
     unique_texts = [text for text in dict.fromkeys(texts) if text]
@@ -142,6 +183,7 @@ def translate_texts(
                 max_new_tokens=128,
                 num_beams=1,
                 do_sample=False,
+                **generation_kwargs,
             )
         elapsed_ms = (time.perf_counter() - started) * 1000
         decoded = tokenizer.batch_decode(generated, skip_special_tokens=True)
@@ -151,6 +193,10 @@ def translate_texts(
                 text=normalize_spaces(target),
                 milliseconds=per_item_ms,
             )
+        print(
+            f"translated {min(start + len(batch), len(unique_texts))}/{len(unique_texts)}",
+            flush=True,
+        )
     return translations
 
 
@@ -218,11 +264,28 @@ def summarize(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def main() -> None:
     args = parse_args()
     report = json.loads(args.input.read_text())
+    clip_filter = {
+        value.strip() for value in args.clip_filter.split(",") if value.strip()
+    }
+    source_runs = [
+        run
+        for run in report["runs"]
+        if not clip_filter or run["clipId"] in clip_filter
+    ]
+    if not source_runs:
+        raise ValueError("clip filter selected no benchmark runs")
     device = choose_device(args.device)
-    tokenizer, model, mt_load_ms = load_translator(args.model, device)
+    family = model_family(args.model, args.model_family)
+    tokenizer, model, generation_kwargs, mt_load_ms = load_translator(
+        args.model,
+        device,
+        family,
+        args.source_lang,
+        args.target_lang,
+    )
 
     window_sources: list[str] = []
-    for run in report["runs"]:
+    for run in source_runs:
         for window in run.get("windows", []):
             cleaned = clean_asr_text(window.get("text", ""))
             window["cleanedAsrText"] = cleaned
@@ -235,10 +298,11 @@ def main() -> None:
         device,
         window_sources,
         args.batch_size,
+        generation_kwargs,
     )
 
     runs: list[dict[str, Any]] = []
-    for run in report["runs"]:
+    for run in source_runs:
         translated_windows = []
         translated_texts = []
         mt_ms = 0.0
@@ -302,6 +366,9 @@ def main() -> None:
         "sourceReport": str(args.input),
         "asrModel": report["runs"][0]["model"] if report.get("runs") else None,
         "mtModel": args.model,
+        "mtModelFamily": family,
+        "sourceLanguage": args.source_lang,
+        "targetLanguage": args.target_lang,
         "mtDevice": device.type,
         "mtLoadMs": mt_load_ms,
         "batchSize": args.batch_size,
